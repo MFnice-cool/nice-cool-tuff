@@ -6,8 +6,9 @@ import "./styles/themes.css";
 import "./styles/textures.css";
 import { applyTheme, readStoredTheme } from "./lib/themes";
 import { installActionFeedback } from "./lib/actionFeedback";
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { installBrowserMockIfNeeded } from "./lib/browserMock";
+import { installConsoleBridge } from "./lib/consoleBridge";
 
 // Browser preview (e2b.app, vite dev without Tauri) — install full IPC mock
 // synchronously before any component touches `invoke`/`listen`.
@@ -21,14 +22,9 @@ installActionFeedback();
 // Unified logging (tauri-plugin-tracing): bridge JS console output into the
 // Rust tracing subscriber, which writes the rotating logs/tuffbox.*.log file
 // alongside Rust spans. Browser preview (no Tauri) skips the interception.
+// Never use the plugin's interceptConsole() — see lib/consoleBridge.ts.
 if (isTauri()) {
-  void import("@fltsci/tauri-plugin-tracing")
-    .then(({ interceptConsole }) =>
-      interceptConsole({ preserveOriginal: true }),
-    )
-    .catch(() => {
-      /* logging bridge is best-effort; never block startup */
-    });
+  installConsoleBridge(invoke);
 }
 
 window.addEventListener("error", (event) => {
