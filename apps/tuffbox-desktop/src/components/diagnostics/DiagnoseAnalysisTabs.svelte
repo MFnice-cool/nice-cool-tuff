@@ -43,6 +43,11 @@
 
   let detailTab: "rules" | "ai" = $state("rules");
   const sourceBadge = $derived(cascadeLabel || aiAnalysis?.source || null);
+  // Model output routinely repeats a mod; the keyed #each below would throw
+  // each_key_duplicate and freeze the whole AI panel.
+  const suspectedMods = $derived<string[]>([
+    ...new Set<string>((aiAnalysis?.suspectedMods ?? aiAnalysis?.suspected_mods ?? []).map(String)),
+  ]);
 
   function severityChip(sev: string): string {
     if (sev === "critical") return "Fix this first";
@@ -178,11 +183,11 @@
           {#if aiAnalysis.additionalContext ?? aiAnalysis.additional_context}
             <div class="notice warning tight">{aiAnalysis.additionalContext ?? aiAnalysis.additional_context}</div>
           {/if}
-          {#if (aiAnalysis.suspectedMods ?? aiAnalysis.suspected_mods)?.length}
+          {#if suspectedMods.length}
             <div class="ai-list">
               <strong>Suspected</strong>
               <div class="crash-tags">
-                {#each (aiAnalysis.suspectedMods ?? aiAnalysis.suspected_mods) as modId (modId)}
+                {#each suspectedMods as modId (modId)}
                   <code>{modId}</code>
                 {/each}
               </div>

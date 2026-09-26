@@ -9,6 +9,7 @@
     "dialog:default",
     "shell:default",
     "deep-link:default",
-    "mcp-bridge:default"
+    "mcp-bridge:default",
+    "tracing:allow-log"
   ]
 }

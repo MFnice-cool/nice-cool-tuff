@@ -200,6 +200,11 @@
   // Ownership of `analysisBusy` — see UnifiedBusyTracker. The generation
   // counter is bumped by MANUAL AI runs too, which used to strand the flag.
   const unifiedBusy = new UnifiedBusyTracker();
+  // Same ownership rule for the per-stage spinners: a newer run of a
+  // DIFFERENT kind bumps analysisGeneration but never touches these flags,
+  // so gating their reset on isCurrentAnalysis() stranded them on.
+  const crashBusy = new UnifiedBusyTracker();
+  const aiBusy = new UnifiedBusyTracker();
   let analysisKickoff: ReturnType<typeof setTimeout> | undefined;
   let diagnoseTimings = $state<Record<string, { elapsedMs: number; cacheHit: boolean }>>({});
   const isCurrentAnalysis = (generation: number) => generation === analysisGeneration;
@@ -953,6 +958,7 @@
   async function runCrashAssistant(generation?: number) {
     if (!$projectPath) return;
     const run = generation ?? ++analysisGeneration;
+    const crashToken = crashBusy.begin();
     crashLoading = true;
     try {
       const result: any = await invoke("run_crash_assistant_full", {
@@ -969,7 +975,7 @@
     } catch (e) {
       error = String(e);
     } finally {
-      if (isCurrentAnalysis(run)) crashLoading = false;
+      if (crashBusy.shouldSettle(crashToken)) crashLoading = false;
     }
   }
 
@@ -1240,6 +1246,7 @@
     // Manual AI run (Retry AI / Explain): re-arm automatic scheduling.
     if (!opts.quiet) diagnoseWatchdogTripped = false;
     const run = opts.runId ?? ++analysisGeneration;
+    const aiToken = aiBusy.begin();
     aiLoading = true;
     cascadeLiveStage = "l1_searching";
     if (!opts.quiet) error = null;
@@ -1319,7 +1326,7 @@
         error = msg;
       }
     } finally {
-      if (isCurrentAnalysis(run)) {
+      if (aiBusy.shouldSettle(aiToken)) {
         aiLoading = false;
         cascadeLiveStage = null;
       }

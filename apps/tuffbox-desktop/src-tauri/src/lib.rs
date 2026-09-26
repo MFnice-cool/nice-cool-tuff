@@ -6821,9 +6821,20 @@ async fn run_crash_assistant_full(
     report_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     // Task #66: same blocking-pool treatment as get_crash_diagnosis.
-    tokio::task::spawn_blocking(move || run_crash_assistant_full_impl(&app, path, report_id))
-        .await
-        .map_err(|e| e.to_string())?
+    let app_for_run = app.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        run_crash_assistant_full_impl(&app_for_run, path, report_id)
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|r| r);
+    // The impl re-opens the shared diagnose task via diagnose_stage; close it
+    // or the task panel spins on "Running crash checks…" forever.
+    match &result {
+        Ok(_) => diagnose_finish(&app, true, "Crash checks done"),
+        Err(e) => diagnose_finish(&app, false, e),
+    }
+    result
 }
 
 /// Task #66: process-wide cache of class→jar lookups. Scanning every mod jar
@@ -7737,6 +7748,19 @@ async fn analyze_crash_with_ai(
         {
             map.remove(&key);
         }
+    }
+    // The cascade re-opens the shared diagnose task (emit_diagnose_cascade /
+    // ai_plan_with_fallback stages); close it on every exit path or the task
+    // panel stays on "AI: model … is writing the fix plan…" forever.
+    match result {
+        Ok(v) => {
+            let stage = v
+                .get("cascadeStage")
+                .and_then(|s| s.as_str())
+                .unwrap_or("");
+            diagnose_finish(&app, true, &format!("AI: {}", diagnose_cascade_label(stage)));
+        }
+        Err(e) => diagnose_finish(&app, false, e),
     }
     result.clone()
 }

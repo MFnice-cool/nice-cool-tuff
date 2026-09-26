@@ -146,7 +146,9 @@ export function mergeProblems(rows: Problem[]): Problem[] {
     const key = dedupeKey(row);
     const prev = map.get(key);
     if (!prev) {
-      map.set(key, { ...row, actions: [...row.actions], modIds: [...row.modIds], steps: row.steps ? [...row.steps] : undefined });
+      // modIds keys a Svelte keyed {#each}; a duplicate throws each_key_duplicate
+      // and leaves Health stuck on "Loading crash diagnosis…".
+      map.set(key, { ...row, actions: [...row.actions], modIds: [...new Set(row.modIds)], steps: row.steps ? [...row.steps] : undefined });
       continue;
     }
     prev.severity = maxSeverity(prev.severity, row.severity);
