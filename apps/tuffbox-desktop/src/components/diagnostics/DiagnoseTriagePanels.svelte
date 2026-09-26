@@ -278,7 +278,7 @@
       <div class="mcreator">
         <strong>MCreator mods</strong>
         <div class="crash-tags">
-          {#each mcreatorMods as id (id)}
+          {#each [...new Set(mcreatorMods)] as id (id)}
             <code>{id}</code>
           {/each}
         </div>
