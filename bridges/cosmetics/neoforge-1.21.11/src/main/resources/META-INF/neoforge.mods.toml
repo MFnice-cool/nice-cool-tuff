@@ -1,0 +1,9 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+
+[[mods]]
+modId = "tuffbox_cosmetics"
+version = "${version}"
+displayName = "TuffBox Cosmetics"
+description = '''TuffBox cosmetics scaffold for 1.21.11 NeoForge — session/core; FX port pending.'''

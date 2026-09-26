@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT OR Apache-2.0"
+
+[[mods]]
+modId="tuffbox_jei_bridge"
+version="${version}"
+displayName="TuffBox JEI Runtime Bridge"
+description="Read-only localhost bridge between a TuffBox instance and JEI."
+displayTest="IGNORE_ALL_VERSION"
+
+[[dependencies.tuffbox_jei_bridge]]
+modId="neoforge"
+type="required"
+versionRange="[21.1,)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.tuffbox_jei_bridge]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1,1.21.2)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.tuffbox_jei_bridge]]
+modId="jei"
+type="required"
+versionRange="[19.21,)"
+ordering="AFTER"
+side="CLIENT"

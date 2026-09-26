@@ -1,0 +1,32 @@
+plugins {
+    id "net.neoforged.gradle.userdev" version "7.0.145"
+}
+
+base {
+    archivesName = "tuffbox-overlay-1.21.1-neoforge"
+}
+
+repositories {
+    maven { url = "https://api.modrinth.com/maven" }
+}
+
+dependencies {
+    implementation "net.neoforged:neoforge:${neoforge_version}"
+    implementation project(":core")
+
+    // WATERMeDIA API surface — provided at runtime by the launcher inject.
+    compileOnly "maven.modrinth:watermedia:${watermedia_version}"
+}
+
+sourceSets.main.java.srcDir("../common/src/main/java")
+// Fabric entrypoint is loader-specific — exclude it from the NeoForge compile.
+sourceSets.main.java.exclude("dev/tuffbox/overlay/TuffBoxOverlayClient.java")
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+tasks.named("jar", Jar).configure {
+    from(project(":core").sourceSets.main.output)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

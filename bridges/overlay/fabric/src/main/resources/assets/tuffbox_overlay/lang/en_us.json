@@ -1,0 +1,9 @@
+{
+  "key.categories.tuffbox_overlay": "TuffBox Overlay",
+  "key.tuffbox_overlay.open": "Open Overlay",
+  "key.tuffbox_overlay.play_pause": "Overlay: Play/Pause",
+  "key.tuffbox_overlay.stop": "Overlay: Stop",
+  "key.tuffbox_overlay.volume_up": "Overlay: Volume Up",
+  "key.tuffbox_overlay.volume_down": "Overlay: Volume Down",
+  "key.tuffbox_overlay.toggle_pip": "Overlay: Toggle PiP"
+}

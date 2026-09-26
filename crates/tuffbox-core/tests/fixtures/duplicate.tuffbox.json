@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "0.1.0",
+  "project": { "id": "duplicate", "name": "Duplicate", "version": "0.1.0" },
+  "minecraft": { "version": "1.20.1" },
+  "loader": { "type": "fabric", "version": "0.15.11" },
+  "java": { "major": 17 },
+  "profiles": [ { "id": "client", "name": "Client", "side": "client" } ],
+  "mods": [
+    {
+      "id": "sodium",
+      "name": "Sodium",
+      "source": { "type": "modrinth", "projectId": "sodium" },
+      "version": "0.5.8",
+      "side": "client",
+      "dependencies": []
+    },
+    {
+      "id": "sodium",
+      "name": "Sodium Duplicate",
+      "source": { "type": "local", "path": "mods/sodium-duplicate.jar" },
+      "version": "0.5.7",
+      "side": "client",
+      "dependencies": []
+    }
+  ]
+}

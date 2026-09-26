@@ -1,0 +1,731 @@
+use std::io::Read;
+
+/// Метаданные мода, извлечённые из JAR
+#[derive(Debug, Clone)]
+pub struct ModMetadata {
+    pub mod_id: String,
+    pub display_name: String,
+    pub version: String,
+    pub namespace: String,
+    pub dependencies: Vec<ModDependency>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModDependency {
+    pub mod_id: String,
+    pub required: bool,
+}
+
+/// Трейт, который реализует каждый загрузчик
+pub trait LoaderAdapter: Send + Sync {
+    /// Какие загрузчики поддерживает этот адаптер
+    fn supported_loaders(&self) -> &[ModLoader];
+
+    /// Извлекает метаданные мода из JAR
+    fn extract_metadata(
+        &self,
+        archive: &mut zip::ZipArchive<std::fs::File>,
+    ) -> Result<ModMetadata, AdapterError>;
+
+    /// Возвращает пути внутри JAR, где лежат рецепты
+    fn recipe_paths(&self, archive: &zip::ZipArchive<std::fs::File>) -> Vec<String>;
+
+    /// Возвращает пути внутри JAR, где лежат теги предметов
+    fn item_tag_paths(&self, archive: &zip::ZipArchive<std::fs::File>) -> Vec<String>;
+
+    /// Возвращает пути к конфигам, которые мод создаёт
+    fn config_file_patterns(&self) -> Vec<ConfigPattern>;
+
+    /// Парсит рецепт из JSON с учётом особенностей загрузчика
+    fn parse_recipe(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+        mc_version: &McVersion,
+    ) -> Result<UnifiedRecipe, AdapterError>;
+
+    /// Парсит тег из JSON с учётом особенностей загрузчика
+    fn parse_tag(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+    ) -> Result<UnifiedTag, AdapterError>;
+}
+
+/// Описание паттерна конфиг-файла
+#[derive(Debug, Clone)]
+pub struct ConfigPattern {
+    /// Glob-паттерн пути (config/modid/*.toml)
+    pub path_pattern: String,
+    /// Ожидаемый формат
+    pub format: ConfigFileFormat,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ConfigFileFormat {
+    Toml,
+    Json,
+    Json5,
+    Cfg,
+    Properties,
+    Snbt,
+    Yaml,
+}
+
+// ────────────────────────────────────────
+// Forge Adapter
+// ────────────────────────────────────────
+
+pub struct ForgeAdapter;
+
+impl LoaderAdapter for ForgeAdapter {
+    fn supported_loaders(&self) -> &[ModLoader] {
+        &[ModLoader::Forge]
+    }
+
+    fn extract_metadata(
+        &self,
+        archive: &mut zip::ZipArchive<std::fs::File>,
+    ) -> Result<ModMetadata, AdapterError> {
+        // Forge 1.13+: META-INF/mods.toml
+        if let Ok(mut entry) = archive.by_name("META-INF/mods.toml") {
+            let mut content = String::new();
+            entry.read_to_string(&mut content)?;
+            return Self::parse_mods_toml(&content);
+        }
+
+        // Legacy Forge (1.12 и ранее): mcmod.info
+        if let Ok(mut entry) = archive.by_name("mcmod.info") {
+            let mut content = String::new();
+            entry.read_to_string(&mut content)?;
+            return Self::parse_mcmod_info(&content);
+        }
+
+        Err(AdapterError::NoMetadata)
+    }
+
+    fn recipe_paths(&self, archive: &zip::ZipArchive<std::fs::File>) -> Vec<String> {
+        archive
+            .file_names()
+            .filter(|name| {
+                let parts: Vec<&str> = name.split('/').collect();
+                parts.len() >= 4
+                    && parts[0] == "data"
+                    && parts[2] == "recipes"
+                    && name.ends_with(".json")
+            })
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    fn item_tag_paths(&self, archive: &zip::ZipArchive<std::fs::File>) -> Vec<String> {
+        archive
+            .file_names()
+            .filter(|name| {
+                let parts: Vec<&str> = name.split('/').collect();
+                parts.len() >= 5
+                    && parts[0] == "data"
+                    && parts[2] == "tags"
+                    // Forge: tags/items/ или tags/blocks/
+                    && (parts[3] == "items" || parts[3] == "blocks")
+                    && name.ends_with(".json")
+            })
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    fn config_file_patterns(&self) -> Vec<ConfigPattern> {
+        vec![
+            ConfigPattern {
+                path_pattern: "config/*.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+            },
+            ConfigPattern {
+                path_pattern: "config/*/*.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+            },
+            // Legacy
+            ConfigPattern {
+                path_pattern: "config/*.cfg".to_string(),
+                format: ConfigFileFormat::Cfg,
+            },
+        ]
+    }
+
+    fn parse_recipe(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+        mc_version: &McVersion,
+    ) -> Result<UnifiedRecipe, AdapterError> {
+        let recipe_type = json
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
+        // Forge 1.12-1.15 имел "conditions" в рецептах
+        // Проверяем, не отключен ли рецепт условием
+        let is_conditional = json.get("conditions").is_some();
+
+        // Forge-специфичные типы рецептов
+        let parser: Box<dyn RecipeParser> = match recipe_type {
+            "minecraft:crafting_shaped" => Box::new(ShapedRecipeParser),
+            "minecraft:crafting_shapeless" => Box::new(ShapelessRecipeParser),
+            "minecraft:smelting" | "minecraft:blasting" | "minecraft:smoking" => {
+                Box::new(CookingRecipeParser)
+            }
+            "minecraft:smithing_transform" if mc_version.minor >= 20 => {
+                Box::new(SmithingTransformParser)
+            }
+            "minecraft:smithing" if mc_version.minor < 20 => {
+                Box::new(LegacySmithingParser)
+            }
+            // Forge-специфичные
+            "forge:conditional" => {
+                Box::new(ForgeConditionalRecipeParser)
+            }
+            // Модовые типы — делегируем Generic парсеру
+            _ => Box::new(GenericRecipeParser),
+        };
+
+        parser.parse(json, file_path, mc_version)
+    }
+
+    fn parse_tag(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+    ) -> Result<UnifiedTag, AdapterError> {
+        let replace = json
+            .get("replace")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        let values: Vec<TagEntry> = json
+            .get("values")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| {
+                        // Forge поддерживает условные теги:
+                        // { "id": "modid:item", "required": false }
+                        if let Some(obj) = v.as_object() {
+                            let id = obj.get("id")?.as_str()?.to_string();
+                            let required = obj
+                                .get("required")
+                                .and_then(|r| r.as_bool())
+                                .unwrap_or(true);
+                            Some(TagEntry { id, required })
+                        } else if let Some(s) = v.as_str() {
+                            Some(TagEntry {
+                                id: s.to_string(),
+                                required: true,
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let tag_id = tag_id_from_path(file_path)
+            .ok_or(AdapterError::InvalidPath(file_path.to_string()))?;
+
+        Ok(UnifiedTag {
+            id: tag_id,
+            entries: values,
+            replace,
+        })
+    }
+}
+
+impl ForgeAdapter {
+    fn parse_mods_toml(content: &str) -> Result<ModMetadata, AdapterError> {
+        let table: toml::Table = content
+            .parse()
+            .map_err(|e| AdapterError::Parse(e.to_string()))?;
+
+        let mods = table
+            .get("mods")
+            .and_then(|v| v.as_array())
+            .ok_or(AdapterError::NoMetadata)?;
+
+        let first_mod = mods.first().ok_or(AdapterError::NoMetadata)?;
+
+        let mod_id = first_mod
+            .get("modId")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let display_name = first_mod
+            .get("displayName")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&mod_id)
+            .to_string();
+
+        let version = first_mod
+            .get("version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0.0.0")
+            .to_string();
+
+        Ok(ModMetadata {
+            namespace: mod_id.clone(),
+            mod_id,
+            display_name,
+            version,
+            dependencies: Vec::new(), // TODO: парсить [[dependencies.*]]
+        })
+    }
+
+    fn parse_mcmod_info(content: &str) -> Result<ModMetadata, AdapterError> {
+        // mcmod.info — это JSON (иногда невалидный)
+        // Может быть массивом или объектом с ключом "modList"
+        let clean = content.trim().trim_start_matches('\u{feff}'); // убираем BOM
+
+        let json: serde_json::Value = serde_json::from_str(clean)
+            .map_err(|e| AdapterError::Parse(e.to_string()))?;
+
+        let mod_info = if let Some(arr) = json.as_array() {
+            arr.first().cloned()
+        } else if let Some(list) = json.get("modList").and_then(|v| v.as_array()) {
+            list.first().cloned()
+        } else {
+            Some(json.clone())
+        };
+
+        let mod_info = mod_info.ok_or(AdapterError::NoMetadata)?;
+
+        Ok(ModMetadata {
+            mod_id: mod_info
+                .get("modid")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            display_name: mod_info
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown")
+                .to_string(),
+            version: mod_info
+                .get("version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("0.0.0")
+                .to_string(),
+            namespace: mod_info
+                .get("modid")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            dependencies: Vec::new(),
+        })
+    }
+}
+
+// ────────────────────────────────────────
+// Fabric Adapter
+// ────────────────────────────────────────
+
+pub struct FabricAdapter;
+
+impl LoaderAdapter for FabricAdapter {
+    fn supported_loaders(&self) -> &[ModLoader] {
+        &[ModLoader::Fabric, ModLoader::Quilt]
+    }
+
+    fn extract_metadata(
+        &self,
+        archive: &mut zip::ZipArchive<std::fs::File>,
+    ) -> Result<ModMetadata, AdapterError> {
+        // Fabric: fabric.mod.json
+        if let Ok(mut entry) = archive.by_name("fabric.mod.json") {
+            let mut content = String::new();
+            entry.read_to_string(&mut content)?;
+            return Self::parse_fabric_mod_json(&content);
+        }
+
+        // Quilt: quilt.mod.json
+        if let Ok(mut entry) = archive.by_name("quilt.mod.json") {
+            let mut content = String::new();
+            entry.read_to_string(&mut content)?;
+            return Self::parse_quilt_mod_json(&content);
+        }
+
+        Err(AdapterError::NoMetadata)
+    }
+
+    fn recipe_paths(&self, archive: &zip::ZipArchive<std::fs::File>) -> Vec<String> {
+        // Fabric использует ту же структуру data packs, что и Forge
+        archive
+            .file_names()
+            .filter(|name| {
+                let parts: Vec<&str> = name.split('/').collect();
+                parts.len() >= 4
+                    && parts[0] == "data"
+                    && (parts[2] == "recipes" || parts[2] == "recipe")
+                    && name.ends_with(".json")
+            })
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    fn item_tag_paths(&self, archive: &zip::ZipArchive<std::fs::File>) -> Vec<String> {
+        archive
+            .file_names()
+            .filter(|name| {
+                let parts: Vec<&str> = name.split('/').collect();
+                parts.len() >= 5
+                    && parts[0] == "data"
+                    && parts[2] == "tags"
+                    && (parts[3] == "items" || parts[3] == "item")
+                    && name.ends_with(".json")
+            })
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    fn config_file_patterns(&self) -> Vec<ConfigPattern> {
+        vec![
+            ConfigPattern {
+                path_pattern: "config/*.json".to_string(),
+                format: ConfigFileFormat::Json,
+            },
+            ConfigPattern {
+                path_pattern: "config/*.json5".to_string(),
+                format: ConfigFileFormat::Json5,
+            },
+            ConfigPattern {
+                path_pattern: "config/*/*.json".to_string(),
+                format: ConfigFileFormat::Json,
+            },
+            // Некоторые Fabric моды тоже используют TOML
+            ConfigPattern {
+                path_pattern: "config/*.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+            },
+        ]
+    }
+
+    fn parse_recipe(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+        mc_version: &McVersion,
+    ) -> Result<UnifiedRecipe, AdapterError> {
+        let recipe_type = json
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
+        // Fabric использует conditions через fabric:conditions
+        // (отличается от Forge)
+        let conditions = json.get("fabric:conditions");
+
+        let parser: Box<dyn RecipeParser> = match recipe_type {
+            "minecraft:crafting_shaped" => Box::new(ShapedRecipeParser),
+            "minecraft:crafting_shapeless" => Box::new(ShapelessRecipeParser),
+            "minecraft:smelting" | "minecraft:blasting" | "minecraft:smoking" => {
+                Box::new(CookingRecipeParser)
+            }
+            _ => Box::new(GenericRecipeParser),
+        };
+
+        parser.parse(json, file_path, mc_version)
+    }
+
+    fn parse_tag(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+    ) -> Result<UnifiedTag, AdapterError> {
+        // Fabric теги проще — нет условных записей
+        let replace = json
+            .get("replace")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        let values: Vec<TagEntry> = json
+            .get("values")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| {
+                        v.as_str().map(|s| TagEntry {
+                            id: s.to_string(),
+                            required: true,
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let tag_id = tag_id_from_path(file_path)
+            .ok_or(AdapterError::InvalidPath(file_path.to_string()))?;
+
+        Ok(UnifiedTag {
+            id: tag_id,
+            entries: values,
+            replace,
+        })
+    }
+}
+
+impl FabricAdapter {
+    fn parse_fabric_mod_json(content: &str) -> Result<ModMetadata, AdapterError> {
+        let json: serde_json::Value = serde_json::from_str(content)
+            .map_err(|e| AdapterError::Parse(e.to_string()))?;
+
+        let mod_id = json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let display_name = json
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&mod_id)
+            .to_string();
+
+        let version = json
+            .get("version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0.0.0")
+            .to_string();
+
+        let dependencies = json
+            .get("depends")
+            .and_then(|v| v.as_object())
+            .map(|deps| {
+                deps.keys()
+                    .map(|k| ModDependency {
+                        mod_id: k.clone(),
+                        required: true,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Ok(ModMetadata {
+            namespace: mod_id.clone(),
+            mod_id,
+            display_name,
+            version,
+            dependencies,
+        })
+    }
+
+    fn parse_quilt_mod_json(content: &str) -> Result<ModMetadata, AdapterError> {
+        let json: serde_json::Value = serde_json::from_str(content)
+            .map_err(|e| AdapterError::Parse(e.to_string()))?;
+
+        let loader = json
+            .get("quilt_loader")
+            .ok_or(AdapterError::NoMetadata)?;
+
+        let mod_id = loader
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let metadata = loader.get("metadata");
+        let display_name = metadata
+            .and_then(|m| m.get("name"))
+            .and_then(|v| v.as_str())
+            .unwrap_or(&mod_id)
+            .to_string();
+
+        Ok(ModMetadata {
+            namespace: mod_id.clone(),
+            mod_id,
+            display_name,
+            version: loader
+                .get("version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("0.0.0")
+                .to_string(),
+            dependencies: Vec::new(),
+        })
+    }
+}
+
+// ────────────────────────────────────────
+// NeoForge Adapter
+// ────────────────────────────────────────
+
+pub struct NeoForgeAdapter;
+
+impl LoaderAdapter for NeoForgeAdapter {
+    fn supported_loaders(&self) -> &[ModLoader] {
+        &[ModLoader::NeoForge]
+    }
+
+    fn extract_metadata(
+        &self,
+        archive: &mut zip::ZipArchive<std::fs::File>,
+    ) -> Result<ModMetadata, AdapterError> {
+        // NeoForge 1.20.5+: META-INF/neoforge.mods.toml
+        if let Ok(mut entry) = archive.by_name("META-INF/neoforge.mods.toml") {
+            let mut content = String::new();
+            entry.read_to_string(&mut content)?;
+            return ForgeAdapter::parse_mods_toml(&content);
+        }
+
+        // Fallback на старый формат
+        if let Ok(mut entry) = archive.by_name("META-INF/mods.toml") {
+            let mut content = String::new();
+            entry.read_to_string(&mut content)?;
+            return ForgeAdapter::parse_mods_toml(&content);
+        }
+
+        Err(AdapterError::NoMetadata)
+    }
+
+    fn recipe_paths(&self, archive: &zip::ZipArchive<std::fs::File>) -> Vec<String> {
+        // NeoForge 1.21+ использует data/<namespace>/recipe/ (без s!)
+        archive
+            .file_names()
+            .filter(|name| {
+                let parts: Vec<&str> = name.split('/').collect();
+                parts.len() >= 4
+                    && parts[0] == "data"
+                    && (parts[2] == "recipes" || parts[2] == "recipe")
+                    && name.ends_with(".json")
+            })
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    fn item_tag_paths(&self, archive: &zip::ZipArchive<std::fs::File>) -> Vec<String> {
+        // NeoForge 1.21+: data/<namespace>/tags/item/ (без s!)
+        archive
+            .file_names()
+            .filter(|name| {
+                let parts: Vec<&str> = name.split('/').collect();
+                parts.len() >= 5
+                    && parts[0] == "data"
+                    && parts[2] == "tags"
+                    && (parts[3] == "items" || parts[3] == "item")
+                    && name.ends_with(".json")
+            })
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    fn config_file_patterns(&self) -> Vec<ConfigPattern> {
+        vec![
+            ConfigPattern {
+                path_pattern: "config/*.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+            },
+            ConfigPattern {
+                path_pattern: "config/*/*.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+            },
+        ]
+    }
+
+    fn parse_recipe(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+        mc_version: &McVersion,
+    ) -> Result<UnifiedRecipe, AdapterError> {
+        let recipe_type = json
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
+        // NeoForge 1.21+ изменил формат рецептов:
+        // result теперь использует компоненты вместо NBT
+        let parser: Box<dyn RecipeParser> = match recipe_type {
+            "minecraft:crafting_shaped" if mc_version.minor >= 21 => {
+                Box::new(ShapedRecipeParser121)
+            }
+            "minecraft:crafting_shaped" => Box::new(ShapedRecipeParser),
+            "minecraft:crafting_shapeless" if mc_version.minor >= 21 => {
+                Box::new(ShapelessRecipeParser121)
+            }
+            "minecraft:crafting_shapeless" => Box::new(ShapelessRecipeParser),
+            "neoforge:conditional" => Box::new(NeoForgeConditionalParser),
+            _ => Box::new(GenericRecipeParser),
+        };
+
+        parser.parse(json, file_path, mc_version)
+    }
+
+    fn parse_tag(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+    ) -> Result<UnifiedTag, AdapterError> {
+        // NeoForge 1.21+ поддерживает "remove" в тегах
+        let remove: Vec<String> = json
+            .get("remove")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let replace = json
+            .get("replace")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        let values: Vec<TagEntry> = json
+            .get("values")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| {
+                        if let Some(s) = v.as_str() {
+                            Some(TagEntry {
+                                id: s.to_string(),
+                                required: true,
+                            })
+                        } else if let Some(obj) = v.as_object() {
+                            Some(TagEntry {
+                                id: obj.get("id")?.as_str()?.to_string(),
+                                required: obj
+                                    .get("required")
+                                    .and_then(|r| r.as_bool())
+                                    .unwrap_or(true),
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let tag_id = tag_id_from_path(file_path)
+            .ok_or(AdapterError::InvalidPath(file_path.to_string()))?;
+
+        Ok(UnifiedTag {
+            id: tag_id,
+            entries: values,
+            replace,
+        })
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AdapterError {
+    #[error("IO: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Нет метаданных мода")]
+    NoMetadata,
+    #[error("Ошибка парсинга: {0}")]
+    Parse(String),
+    #[error("Невалидный путь: {0}")]
+    InvalidPath(String),
+    #[error("Неподдерживаемый тип рецепта: {0}")]
+    UnsupportedRecipeType(String),
+}

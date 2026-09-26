@@ -1,0 +1,139 @@
+/// Конвертирует теги между пространствами имён
+/// forge:ingots/copper ↔ c:ingots/copper
+pub struct TagNormalizer;
+
+impl TagNormalizer {
+    /// Приводит тег к каноническому виду (c:)
+    pub fn normalize(tag: &TagId, env: &ModpackEnvironment) -> TagId {
+        match &env.tag_namespace {
+            TagNamespace::Common => {
+                // Если тег уже c: — оставляем
+                // Если forge: — конвертируем
+                if tag.namespace == "forge" {
+                    TagId {
+                        namespace: "c".to_string(),
+                        path: Self::forge_path_to_common(&tag.path),
+                    }
+                } else {
+                    tag.clone()
+                }
+            }
+            TagNamespace::Forge => {
+                if tag.namespace == "c" {
+                    TagId {
+                        namespace: "forge".to_string(),
+                        path: Self::common_path_to_forge(&tag.path),
+                    }
+                } else {
+                    tag.clone()
+                }
+            }
+            TagNamespace::Mixed => {
+                // Сохраняем как есть, но создаём маппинг
+                tag.clone()
+            }
+        }
+    }
+
+    /// Строит полную таблицу эквивалентов тегов
+    pub fn build_equivalence_map(
+        all_tags: &[UnifiedTag],
+        env: &ModpackEnvironment,
+    ) -> HashMap<TagId, Vec<TagId>> {
+        let mut equivalences: HashMap<TagId, Vec<TagId>> = HashMap::new();
+
+        for tag in all_tags {
+            let normalized = Self::normalize(&tag.id, env);
+
+            if normalized != tag.id {
+                equivalences
+                    .entry(normalized.clone())
+                    .or_default()
+                    .push(tag.id.clone());
+
+                equivalences
+                    .entry(tag.id.clone())
+                    .or_default()
+                    .push(normalized);
+            }
+        }
+
+        // Добавляем известные маппинги между forge: и c:
+        for (forge_path, common_path) in Self::known_mappings() {
+            let forge_tag = TagId {
+                namespace: "forge".to_string(),
+                path: forge_path.to_string(),
+            };
+            let common_tag = TagId {
+                namespace: "c".to_string(),
+                path: common_path.to_string(),
+            };
+
+            equivalences
+                .entry(forge_tag.clone())
+                .or_default()
+                .push(common_tag.clone());
+            equivalences
+                .entry(common_tag)
+                .or_default()
+                .push(forge_tag);
+        }
+
+        equivalences
+    }
+
+    /// forge:ingots/copper → ingots/copper (в данном случае совпадает)
+    /// forge:ores/copper → ores/copper
+    /// forge:storage_blocks/copper → storage_blocks/copper
+    fn forge_path_to_common(forge_path: &str) -> String {
+        // В большинстве случаев пути совпадают
+        // Но есть исключения:
+        match forge_path {
+            "ores_in_ground/stone" => "ores_in_ground/stone".to_string(),
+            "ores_in_ground/deepslate" => "ores_in_ground/deepslate".to_string(),
+            other => other.to_string(),
+        }
+    }
+
+    fn common_path_to_forge(common_path: &str) -> String {
+        common_path.to_string()
+    }
+
+    fn known_mappings() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("ingots/copper", "ingots/copper"),
+            ("ingots/iron", "ingots/iron"),
+            ("ingots/gold", "ingots/gold"),
+            ("ingots/tin", "ingots/tin"),
+            ("ingots/silver", "ingots/silver"),
+            ("ingots/lead", "ingots/lead"),
+            ("ingots/aluminum", "ingots/aluminum"),
+            ("ingots/nickel", "ingots/nickel"),
+            ("ingots/steel", "ingots/steel"),
+            ("gems/diamond", "gems/diamond"),
+            ("gems/emerald", "gems/emerald"),
+            ("gems/ruby", "gems/ruby"),
+            ("dusts/iron", "dusts/iron"),
+            ("dusts/gold", "dusts/gold"),
+            ("nuggets/iron", "nuggets/iron"),
+            ("nuggets/gold", "nuggets/gold"),
+            ("nuggets/copper", "nuggets/copper"),
+            ("storage_blocks/iron", "storage_blocks/iron"),
+            ("storage_blocks/copper", "storage_blocks/copper"),
+            ("ores/copper", "ores/copper"),
+            ("ores/tin", "ores/tin"),
+            ("ores/silver", "ores/silver"),
+            ("ores/lead", "ores/lead"),
+            ("raw_materials/copper", "raw_materials/copper"),
+            ("raw_materials/iron", "raw_materials/iron"),
+            ("raw_materials/gold", "raw_materials/gold"),
+            ("plates/iron", "plates/iron"),
+            ("plates/gold", "plates/gold"),
+            ("plates/copper", "plates/copper"),
+            ("gears/iron", "gears/iron"),
+            ("gears/gold", "gears/gold"),
+            ("rods/iron", "rods/iron"),
+            ("rods/wooden", "rods/wooden"),
+        ]
+    }
+}

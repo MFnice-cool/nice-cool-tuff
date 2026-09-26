@@ -1,0 +1,18 @@
+# Minimal Supabase CLI config for TuffSwarm capsule ingest.
+# Deploy: supabase db push && supabase functions deploy publish-capsule && supabase functions deploy vote-capsule && supabase functions deploy accept-creation
+# Kudos/RAC: migration 017; Creation Accept: migration 018 + accept-creation (verify_jwt=true).
+
+[functions.publish-capsule]
+verify_jwt = false
+
+[functions.vote-capsule]
+verify_jwt = true
+
+[functions.accept-creation]
+verify_jwt = true
+
+[functions.report-cooccurrence]
+verify_jwt = false
+
+[functions.fetch-youtube-feed]
+verify_jwt = false

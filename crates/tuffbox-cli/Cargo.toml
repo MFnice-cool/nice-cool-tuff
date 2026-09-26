@@ -1,0 +1,23 @@
+[package]
+name = "tuffbox-cli"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "tuffbox"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+dirs.workspace = true
+tuffbox-core = { path = "../tuffbox-core" }
+reqwest = { workspace = true, features = ["json"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
+zip.workspace = true
+sha1.workspace = true
+hex.workspace = true

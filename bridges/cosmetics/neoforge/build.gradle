@@ -1,0 +1,21 @@
+plugins {
+    id "net.neoforged.gradle.userdev" version "7.0.145"
+}
+
+base {
+    archivesName = "tuffbox-cosmetics-1.21.1-neoforge"
+}
+
+dependencies {
+    implementation "net.neoforged:neoforge:${neoforge_version}"
+    implementation project(":core")
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+tasks.named("jar", Jar).configure {
+    from(project(":core").sourceSets.main.output)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

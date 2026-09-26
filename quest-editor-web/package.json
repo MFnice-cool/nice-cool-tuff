@@ -1,0 +1,22 @@
+{
+  "name": "tuffbox-quest-editor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte": "^5.0.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@tuffbox/quest-lib": "*",
+    "@xyflow/svelte": "^1.6.2"
+  }
+}

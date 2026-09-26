@@ -1,0 +1,36 @@
+allprojects {
+    group = "dev.tuffbox"
+    version = "0.1.0"
+}
+
+subprojects {
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = "UTF-8"
+    }
+    // core stays on Java 8; platforms use 21 (or their own toolchain)
+    if (name != "core") {
+        tasks.withType(JavaCompile).configureEach {
+            options.release = 21
+        }
+    }
+}
+
+def overlayJarModules = [
+    "fabric", "neoforge",
+]
+
+tasks.register("syncDesktopResources", Copy) {
+    overlayJarModules.each { mod ->
+        def p = findProject(":${mod}")
+        if (p != null) {
+            // :build covers loom's remapJar (fabric) and userdev's final jar (neoforge)
+            dependsOn("${mod}:build")
+            from(p.layout.buildDirectory.dir("libs")) {
+                include("tuffbox-overlay-*.jar")
+                exclude("*-sources.jar", "*-dev.jar", "*-javadoc.jar")
+            }
+        }
+    }
+    into(layout.projectDirectory.dir("prebuilt"))
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}

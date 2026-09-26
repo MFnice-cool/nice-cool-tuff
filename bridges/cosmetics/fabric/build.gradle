@@ -1,0 +1,29 @@
+plugins {
+    id "fabric-loom" version "1.7-SNAPSHOT"
+}
+
+base {
+    archivesName = "tuffbox-cosmetics-1.21.1-fabric"
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    implementation project(":core")
+    include project(":core")
+}
+
+sourceSets.main.java.srcDir("../common/src/main/java")
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}

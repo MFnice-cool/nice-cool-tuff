@@ -1,0 +1,8 @@
+# Built sidecar for Fog L2 (`tuffswarm-node`).
+#
+# Populated by `build.rs` from workspace `target/{release,debug}/`.
+#
+#   cargo build -p tuffswarm-node
+#   cargo build -p tuffbox-desktop   # (or tauri build) — copies into this folder
+#
+# Packaged as resource dir `tuffswarm-bin/` next to the IDE.

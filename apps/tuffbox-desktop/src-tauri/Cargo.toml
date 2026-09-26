@@ -1,0 +1,81 @@
+[package]
+name = "tuffbox-desktop"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "tuffbox_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "tuffbox-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset", "macos-private-api"] }
+# Real OS-level window glass: Acrylic (Windows 10), Mica/Tabbed (Windows 11),
+# sidebar vibrancy (macOS). Applied when the user enables Glass transparency.
+window-vibrancy = "0.5"
+dirs.workspace = true
+tokio.workspace = true
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-deep-link = "2"
+# `tuffbox://install?repo=owner/repo` share links open the app directly.
+# A second launch hands its argv (the clicked link) to the instance already running.
+# Its `deep-link` feature replays those args through tauri-plugin-deep-link.
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+# Unified structured logging: Rust tracing + JS console bridged into one
+# rotating file (logs/tuffbox.log), replacing scattered eprintln/println.
+tauri-plugin-tracing = "0.3"
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tuffbox-core = { path = "../../../crates/tuffbox-core" }
+zip.workspace = true
+# Drag & drop import of foreign modpack archives (Library → drop .7z / .rar).
+# sevenz-rust is pure Rust; unrar wraps the official unrar C++ sources.
+sevenz-rust = "0.6"
+unrar = "0.5"
+once_cell.workspace = true
+toml.workspace = true
+tempfile.workspace = true
+rayon.workspace = true
+reqwest.workspace = true
+keyring = { version = "3.6.3", features = ["windows-native", "apple-native", "linux-native-sync-persistent", "crypto-rust"] }
+url = "2"
+discord-rich-presence = "0.2"
+semver = "1.0.28"
+base64.workspace = true
+md-5.workspace = true
+sha2.workspace = true
+hex.workspace = true
+sysinfo = "0.33"
+pest = "2.7"
+pest_derive = "2.7"
+windows = { version = "0.58", features = [
+  "Win32_Foundation",
+  "Win32_System_Diagnostics_Debug",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
+  "Win32_System_Threading",
+  "Win32_Graphics_Dxgi",
+  "Win32_System_SystemInformation",
+] }
+taurpc = "0.7.1"
+specta = { version = "2.0.0-rc.22", features = ["derive", "export", "function"] }
+json5 = "1.3.1"
+# Tauri MCP bridge (hypothesi/mcp-server-tauri): lets the `tauri` MCP server
+# drive the running app — webview screenshots, DOM snapshots, IPC capture.
+# The dependency stays unconditional so the `mcp-bridge:default` permission in
+# capabilities/default.json still resolves for release builds; only the plugin
+# registration in lib.rs is gated on debug builds.
+tauri-plugin-mcp-bridge = "0.13"
+
+[target.'cfg(windows)'.dependencies]
+winreg.workspace = true

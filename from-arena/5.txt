@@ -1,0 +1,222 @@
+/// Трейт для мод-специфичных знаний
+pub trait ModOverride: Send + Sync {
+    /// ID мода, для которого работает этот override
+    fn mod_id(&self) -> &str;
+
+    /// Какие конфиг-файлы создаёт мод и где
+    fn config_locations(&self) -> Vec<ModConfigLocation>;
+
+    /// Как найти настройку генерации руды в конфигах этого мода
+    fn ore_gen_config_keys(&self) -> Vec<OreConfigMapping>;
+
+    /// Дополнительные предметы, которые не видны в JAR
+    /// (создаются программно)
+    fn programmatic_items(&self) -> Vec<String>;
+
+    /// Рецепты, которые мод создаёт программно (не через JSON)
+    fn programmatic_recipes(&self) -> Vec<UnifiedRecipe>;
+}
+
+#[derive(Debug, Clone)]
+pub struct ModConfigLocation {
+    pub path: String,
+    pub format: ConfigFileFormat,
+    pub description: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct OreConfigMapping {
+    pub resource_name: String,          // "copper"
+    pub config_file: String,            // "config/mekanism/world.toml"
+    pub enabled_key: String,            // "world.copper.shouldGenerate"
+    pub vein_size_key: Option<String>,
+    pub min_height_key: Option<String>,
+    pub max_height_key: Option<String>,
+}
+
+// ────────────────────────────────────────
+
+pub struct MekanismOverride;
+
+impl ModOverride for MekanismOverride {
+    fn mod_id(&self) -> &str {
+        "mekanism"
+    }
+
+    fn config_locations(&self) -> Vec<ModConfigLocation> {
+        vec![
+            ModConfigLocation {
+                path: "config/mekanism/general.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+                description: "Основные настройки Mekanism".to_string(),
+            },
+            ModConfigLocation {
+                path: "config/mekanism/world.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+                description: "Генерация мира (руды)".to_string(),
+            },
+            ModConfigLocation {
+                path: "config/mekanism/gear.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+                description: "Настройки снаряжения".to_string(),
+            },
+            ModConfigLocation {
+                path: "config/mekanism/storage.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+                description: "Настройки хранилищ энергии".to_string(),
+            },
+            ModConfigLocation {
+                path: "config/mekanism/usage.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+                description: "Потребление энергии машинами".to_string(),
+            },
+        ]
+    }
+
+    fn ore_gen_config_keys(&self) -> Vec<OreConfigMapping> {
+        vec![
+            OreConfigMapping {
+                resource_name: "tin".to_string(),
+                config_file: "config/mekanism/world.toml".to_string(),
+                enabled_key: "tin.shouldGenerate".to_string(),
+                vein_size_key: Some("tin.perChunk".to_string()),
+                min_height_key: Some("tin.bottomOffset".to_string()),
+                max_height_key: Some("tin.topOffset".to_string()),
+            },
+            OreConfigMapping {
+                resource_name: "osmium".to_string(),
+                config_file: "config/mekanism/world.toml".to_string(),
+                enabled_key: "osmium.shouldGenerate".to_string(),
+                vein_size_key: Some("osmium.perChunk".to_string()),
+                min_height_key: Some("osmium.bottomOffset".to_string()),
+                max_height_key: Some("osmium.topOffset".to_string()),
+            },
+            OreConfigMapping {
+                resource_name: "lead".to_string(),
+                config_file: "config/mekanism/world.toml".to_string(),
+                enabled_key: "lead.shouldGenerate".to_string(),
+                vein_size_key: Some("lead.perChunk".to_string()),
+                min_height_key: None,
+                max_height_key: None,
+            },
+            OreConfigMapping {
+                resource_name: "uranium".to_string(),
+                config_file: "config/mekanism/world.toml".to_string(),
+                enabled_key: "uranium.shouldGenerate".to_string(),
+                vein_size_key: Some("uranium.perChunk".to_string()),
+                min_height_key: None,
+                max_height_key: None,
+            },
+            OreConfigMapping {
+                resource_name: "fluorite".to_string(),
+                config_file: "config/mekanism/world.toml".to_string(),
+                enabled_key: "fluorite.shouldGenerate".to_string(),
+                vein_size_key: None,
+                min_height_key: None,
+                max_height_key: None,
+            },
+        ]
+    }
+
+    fn programmatic_items(&self) -> Vec<String> {
+        // Mekanism регистрирует предметы нормально,
+        // но некоторые предметы зависят от конфигов
+        vec![]
+    }
+
+    fn programmatic_recipes(&self) -> Vec<UnifiedRecipe> {
+        // Mekanism использует JSON для рецептов машин,
+        // но формат нестандартный
+        vec![]
+    }
+}
+
+pub struct ThermalOverride;
+
+impl ModOverride for ThermalOverride {
+    fn mod_id(&self) -> &str {
+        "thermal"
+    }
+
+    fn config_locations(&self) -> Vec<ModConfigLocation> {
+        vec![
+            ModConfigLocation {
+                path: "config/thermal/thermal-core.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+                description: "Основные настройки Thermal".to_string(),
+            },
+        ]
+    }
+
+    fn ore_gen_config_keys(&self) -> Vec<OreConfigMapping> {
+        // Thermal использует data packs для генерации, не конфиги
+        // Генерация отключается через удаление файлов из data pack
+        vec![]
+    }
+
+    fn programmatic_items(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn programmatic_recipes(&self) -> Vec<UnifiedRecipe> {
+        vec![]
+    }
+}
+
+pub struct CreateOverride;
+
+impl ModOverride for CreateOverride {
+    fn mod_id(&self) -> &str {
+        "create"
+    }
+
+    fn config_locations(&self) -> Vec<ModConfigLocation> {
+        vec![
+            ModConfigLocation {
+                path: "config/create-common.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+                description: "Общие настройки Create".to_string(),
+            },
+            ModConfigLocation {
+                path: "config/create-client.toml".to_string(),
+                format: ConfigFileFormat::Toml,
+                description: "Клиентские настройки Create".to_string(),
+            },
+        ]
+    }
+
+    fn ore_gen_config_keys(&self) -> Vec<OreConfigMapping> {
+        vec![
+            OreConfigMapping {
+                resource_name: "zinc".to_string(),
+                config_file: "config/create-common.toml".to_string(),
+                enabled_key: "worldgen.disableZincOre".to_string(),
+                vein_size_key: None,
+                min_height_key: None,
+                max_height_key: None,
+            },
+        ]
+    }
+
+    fn programmatic_items(&self) -> Vec<String> {
+        // Create добавляет crushed_ руды для каждого
+        // поддерживаемого металла через теги
+        vec![
+            "create:crushed_raw_iron".to_string(),
+            "create:crushed_raw_gold".to_string(),
+            "create:crushed_raw_copper".to_string(),
+            "create:crushed_raw_zinc".to_string(),
+            "create:crushed_raw_tin".to_string(),
+            "create:crushed_raw_silver".to_string(),
+            "create:crushed_raw_lead".to_string(),
+            "create:crushed_raw_aluminum".to_string(),
+            "create:crushed_raw_nickel".to_string(),
+            "create:crushed_raw_uranium".to_string(),
+            "create:crushed_raw_osmium".to_string(),
+        ]
+    }
+
+    fn programmatic_recipes(&self) -> Vec<UnifiedRecipe> {
+        vec![]
+    }
+}

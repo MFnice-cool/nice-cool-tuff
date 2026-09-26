@@ -1,0 +1,396 @@
+/// Унифицированный рецепт, независимый от версии и загрузчика
+#[derive(Debug, Clone)]
+pub struct UnifiedRecipe {
+    pub id: String,
+    pub recipe_type: String,
+    pub inputs: Vec<UnifiedIngredient>,
+    pub output: UnifiedOutput,
+    pub source_file: String,
+    pub is_conditional: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum UnifiedIngredient {
+    Item(String),               // "minecraft:iron_ingot"
+    Tag(String),                // "#c:ingots/iron"
+    OneOf(Vec<UnifiedIngredient>), // Любой из вариантов
+}
+
+#[derive(Debug, Clone)]
+pub struct UnifiedOutput {
+    pub item: String,
+    pub count: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnifiedTag {
+    pub id: TagId,
+    pub entries: Vec<TagEntry>,
+    pub replace: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct TagEntry {
+    pub id: String,      // "minecraft:copper_ingot" или "#c:ingots/copper"
+    pub required: bool,  // false = не крашить если мод не установлен
+}
+
+/// Трейт для парсеров конкретных типов рецептов
+pub trait RecipeParser {
+    fn parse(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+        mc_version: &McVersion,
+    ) -> Result<UnifiedRecipe, AdapterError>;
+}
+
+// Стандартные парсеры рецептов
+
+pub struct ShapedRecipeParser;
+
+impl RecipeParser for ShapedRecipeParser {
+    fn parse(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+        _mc_version: &McVersion,
+    ) -> Result<UnifiedRecipe, AdapterError> {
+        let key = json.get("key").and_then(|v| v.as_object());
+        let mut inputs = Vec::new();
+
+        if let Some(key_map) = key {
+            for (_symbol, ingredient) in key_map {
+                if let Some(ing) = parse_ingredient_value(ingredient) {
+                    inputs.push(ing);
+                }
+            }
+        }
+
+        let output = parse_result_value(json)?;
+
+        Ok(UnifiedRecipe {
+            id: recipe_id_from_path(file_path),
+            recipe_type: "minecraft:crafting_shaped".to_string(),
+            inputs,
+            output,
+            source_file: file_path.to_string(),
+            is_conditional: json.get("conditions").is_some(),
+        })
+    }
+}
+
+/// 1.21+ версия: ingredients теперь могут быть строками напрямую
+pub struct ShapedRecipeParser121;
+
+impl RecipeParser for ShapedRecipeParser121 {
+    fn parse(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+        _mc_version: &McVersion,
+    ) -> Result<UnifiedRecipe, AdapterError> {
+        let key = json.get("key").and_then(|v| v.as_object());
+        let mut inputs = Vec::new();
+
+        if let Some(key_map) = key {
+            for (_symbol, ingredient) in key_map {
+                // В 1.21+ ингредиент может быть просто строкой:
+                // "key": { "A": "minecraft:diamond" }
+                // вместо
+                // "key": { "A": { "item": "minecraft:diamond" } }
+                if let Some(s) = ingredient.as_str() {
+                    if s.starts_with('#') {
+                        inputs.push(UnifiedIngredient::Tag(s.to_string()));
+                    } else {
+                        inputs.push(UnifiedIngredient::Item(s.to_string()));
+                    }
+                } else if let Some(ing) = parse_ingredient_value(ingredient) {
+                    inputs.push(ing);
+                }
+            }
+        }
+
+        // В 1.21+ result тоже изменился:
+        // "result": { "id": "minecraft:diamond_pickaxe", "count": 1 }
+        // вместо
+        // "result": { "item": "minecraft:diamond_pickaxe", "count": 1 }
+        let output = parse_result_121(json)
+            .or_else(|_| parse_result_value(json))?;
+
+        Ok(UnifiedRecipe {
+            id: recipe_id_from_path(file_path),
+            recipe_type: "minecraft:crafting_shaped".to_string(),
+            inputs,
+            output,
+            source_file: file_path.to_string(),
+            is_conditional: json.get("neoforge:conditions").is_some(),
+        })
+    }
+}
+
+pub struct ShapelessRecipeParser;
+pub struct ShapelessRecipeParser121;
+pub struct CookingRecipeParser;
+pub struct LegacySmithingParser;
+pub struct SmithingTransformParser;
+pub struct ForgeConditionalRecipeParser;
+pub struct NeoForgeConditionalParser;
+pub struct GenericRecipeParser;
+
+// Реализации аналогичны ShapedRecipeParser, с учётом формата
+
+impl RecipeParser for GenericRecipeParser {
+    fn parse(
+        &self,
+        json: &serde_json::Value,
+        file_path: &str,
+        _mc_version: &McVersion,
+    ) -> Result<UnifiedRecipe, AdapterError> {
+        // Для неизвестных типов рецептов (модовые машины и т.д.)
+        // пытаемся извлечь хоть что-то
+
+        let recipe_type = json
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        // Рекурсивно ищем все строки, похожие на item ID
+        let mut all_item_refs = Vec::new();
+        extract_all_item_references(json, &mut all_item_refs);
+
+        // Пытаемся найти выход среди стандартных ключей
+        let output = parse_result_value(json)
+            .or_else(|_| {
+                // Пробуем "output", "outputs", "result", "results"
+                for key in &["output", "outputs", "result", "results"] {
+                    if let Some(val) = json.get(*key) {
+                        if let Ok(out) = try_parse_output(val) {
+                            return Ok(out);
+                        }
+                    }
+                }
+                Err(AdapterError::Parse("No output found".to_string()))
+            })
+            .unwrap_or(UnifiedOutput {
+                item: "unknown:unknown".to_string(),
+                count: 1,
+            });
+
+        // Все остальные ссылки — входы
+        let inputs = all_item_refs
+            .into_iter()
+            .filter(|r| *r != output.item)
+            .map(|r| {
+                if r.starts_with('#') {
+                    UnifiedIngredient::Tag(r)
+                } else {
+                    UnifiedIngredient::Item(r)
+                }
+            })
+            .collect();
+
+        Ok(UnifiedRecipe {
+            id: recipe_id_from_path(file_path),
+            recipe_type,
+            inputs,
+            output,
+            source_file: file_path.to_string(),
+            is_conditional: false,
+        })
+    }
+}
+
+// ────────────────────────────────────────
+// Вспомогательные функции
+// ────────────────────────────────────────
+
+fn parse_ingredient_value(value: &serde_json::Value) -> Option<UnifiedIngredient> {
+    // Объект с "item"
+    if let Some(item) = value.get("item").and_then(|v| v.as_str()) {
+        return Some(UnifiedIngredient::Item(item.to_string()));
+    }
+
+    // Объект с "tag"
+    if let Some(tag) = value.get("tag").and_then(|v| v.as_str()) {
+        return Some(UnifiedIngredient::Tag(format!("#{}", tag)));
+    }
+
+    // Массив альтернатив
+    if let Some(arr) = value.as_array() {
+        let alts: Vec<UnifiedIngredient> = arr
+            .iter()
+            .filter_map(parse_ingredient_value)
+            .collect();
+        if !alts.is_empty() {
+            return Some(UnifiedIngredient::OneOf(alts));
+        }
+    }
+
+    // 1.21+: просто строка
+    if let Some(s) = value.as_str() {
+        if s.starts_with('#') {
+            return Some(UnifiedIngredient::Tag(s.to_string()));
+        } else {
+            return Some(UnifiedIngredient::Item(s.to_string()));
+        }
+    }
+
+    None
+}
+
+fn parse_result_value(json: &serde_json::Value) -> Result<UnifiedOutput, AdapterError> {
+    let result = json
+        .get("result")
+        .ok_or(AdapterError::Parse("no result field".to_string()))?;
+
+    // Строка: "result": "minecraft:diamond"
+    if let Some(s) = result.as_str() {
+        return Ok(UnifiedOutput {
+            item: s.to_string(),
+            count: 1,
+        });
+    }
+
+    // Объект
+    if let Some(obj) = result.as_object() {
+        let item = obj
+            .get("item")
+            .or_else(|| obj.get("id"))
+            .and_then(|v| v.as_str())
+            .ok_or(AdapterError::Parse("no item in result".to_string()))?;
+
+        let count = obj
+            .get("count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1) as u32;
+
+        return Ok(UnifiedOutput {
+            item: item.to_string(),
+            count,
+        });
+    }
+
+    Err(AdapterError::Parse("unparseable result".to_string()))
+}
+
+fn parse_result_121(json: &serde_json::Value) -> Result<UnifiedOutput, AdapterError> {
+    let result = json
+        .get("result")
+        .ok_or(AdapterError::Parse("no result".to_string()))?;
+
+    if let Some(obj) = result.as_object() {
+        // 1.21+: "id" вместо "item"
+        let item = obj
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or(AdapterError::Parse("no id in 1.21 result".to_string()))?;
+
+        let count = obj
+            .get("count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1) as u32;
+
+        return Ok(UnifiedOutput {
+            item: item.to_string(),
+            count,
+        });
+    }
+
+    // 1.21+ также позволяет просто строку
+    if let Some(s) = result.as_str() {
+        return Ok(UnifiedOutput {
+            item: s.to_string(),
+            count: 1,
+        });
+    }
+
+    Err(AdapterError::Parse("unparseable 1.21 result".to_string()))
+}
+
+fn try_parse_output(value: &serde_json::Value) -> Result<UnifiedOutput, AdapterError> {
+    if let Some(s) = value.as_str() {
+        return Ok(UnifiedOutput { item: s.to_string(), count: 1 });
+    }
+    if let Some(obj) = value.as_object() {
+        let item = obj
+            .get("item")
+            .or_else(|| obj.get("id"))
+            .and_then(|v| v.as_str())
+            .ok_or(AdapterError::Parse("no item".to_string()))?;
+        let count = obj.get("count").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
+        return Ok(UnifiedOutput { item: item.to_string(), count });
+    }
+    // Массив выходов — берём первый
+    if let Some(arr) = value.as_array() {
+        if let Some(first) = arr.first() {
+            return try_parse_output(first);
+        }
+    }
+    Err(AdapterError::Parse("no output".to_string()))
+}
+
+/// Рекурсивно ищет все строки, похожие на ID предметов
+fn extract_all_item_references(value: &serde_json::Value, out: &mut Vec<String>) {
+    match value {
+        serde_json::Value::String(s) => {
+            // Похоже на item ID: содержит ":" и нет пробелов
+            if s.contains(':') && !s.contains(' ') && !s.starts_with("minecraft:crafting") {
+                out.push(s.clone());
+            }
+        }
+        serde_json::Value::Object(map) => {
+            // Специально обрабатываем "item" и "tag" ключи
+            if let Some(item) = map.get("item").and_then(|v| v.as_str()) {
+                out.push(item.to_string());
+            }
+            if let Some(tag) = map.get("tag").and_then(|v| v.as_str()) {
+                out.push(format!("#{}", tag));
+            }
+            // Рекурсия для остальных
+            for (key, val) in map {
+                if key != "type" && key != "group" && key != "category" {
+                    extract_all_item_references(val, out);
+                }
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for val in arr {
+                extract_all_item_references(val, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn recipe_id_from_path(path: &str) -> String {
+    let parts: Vec<&str> = path.split('/').collect();
+    if parts.len() >= 4 && parts[0] == "data" {
+        let namespace = parts[1];
+        let rest = parts[3..].join("/");
+        let name = rest.trim_end_matches(".json");
+        format!("{}:{}", namespace, name)
+    } else {
+        path.to_string()
+    }
+}
+
+fn tag_id_from_path(path: &str) -> Option<TagId> {
+    let parts: Vec<&str> = path.split('/').collect();
+    // data/c/tags/items/ingots/copper.json
+    // data/forge/tags/items/ingots/copper.json
+    // data/c/tags/item/ingots/copper.json (1.21+)
+    if parts.len() >= 5 && parts[0] == "data" && parts[2] == "tags" {
+        let namespace = parts[1];
+        // Пропускаем "items" или "item" (parts[3])
+        let tag_path = parts[4..].join("/");
+        let tag_name = tag_path.trim_end_matches(".json");
+        Some(TagId {
+            namespace: namespace.to_string(),
+            path: tag_name.to_string(),
+        })
+    } else {
+        None
+    }
+}

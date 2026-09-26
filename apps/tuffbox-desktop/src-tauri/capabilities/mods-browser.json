@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mods-browser",
+  "description": "Capabilities for the standalone Browse content window (mods / packs / shaders / datapacks).",
+  "windows": ["mods-browser"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-set-title",
+    "dialog:default",
+    "shell:default"
+  ]
+}

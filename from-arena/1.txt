@@ -1,0 +1,290 @@
+use std::path::{Path, PathBuf};
+
+/// Версия Minecraft, разложенная на компоненты
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct McVersion {
+    pub major: u32,   // 1
+    pub minor: u32,   // 20
+    pub patch: u32,   // 1
+}
+
+impl McVersion {
+    pub fn new(major: u32, minor: u32, patch: u32) -> Self {
+        Self { major, minor, patch }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        let parts: Vec<&str> = s.split('.').collect();
+        match parts.len() {
+            2 => Some(Self::new(
+                parts[0].parse().ok()?,
+                parts[1].parse().ok()?,
+                0,
+            )),
+            3 => Some(Self::new(
+                parts[0].parse().ok()?,
+                parts[1].parse().ok()?,
+                parts[2].parse().ok()?,
+            )),
+            _ => None,
+        }
+    }
+
+    /// Эпоха данных — определяет, как хранятся рецепты и теги
+    pub fn data_epoch(&self) -> DataEpoch {
+        match (self.major, self.minor) {
+            (1, 0..=12) => DataEpoch::Legacy,       // Рецепты в Java, нет data packs
+            (1, 13..=15) => DataEpoch::EarlyDataPack, // Первые data packs, теги forge:
+            (1, 16..=20) => DataEpoch::ModernDataPack, // Стабильные data packs
+            (1, 21..) => DataEpoch::Components,      // Новая система компонентов
+            _ => DataEpoch::Unknown,
+        }
+    }
+
+    /// Какой формат тегов используется
+    pub fn tag_namespace(&self) -> TagNamespace {
+        match (self.major, self.minor) {
+            (1, 0..=15) => TagNamespace::Forge,   // forge:ingots/copper
+            (1, 16..=20) => TagNamespace::Mixed,   // forge: или c: в зависимости от загрузчика
+            (1, 21..) => TagNamespace::Common,     // c:ingots/copper (универсальный)
+            _ => TagNamespace::Common,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataEpoch {
+    /// 1.0–1.12: рецепты в Java-коде, конфиги .cfg
+    Legacy,
+    /// 1.13–1.15: первые data packs, переходный период
+    EarlyDataPack,
+    /// 1.16–1.20: стабильная система data packs
+    ModernDataPack,
+    /// 1.21+: компоненты вместо NBT, новые форматы
+    Components,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TagNamespace {
+    /// forge:ingots/copper (старый Forge)
+    Forge,
+    /// Может быть forge: или c: в зависимости от загрузчика
+    Mixed,
+    /// c:ingots/copper (NeoForge 1.21+, Fabric)
+    Common,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModLoader {
+    Forge,
+    NeoForge,
+    Fabric,
+    Quilt,
+    Unknown,
+}
+
+/// Полное описание окружения модпака
+#[derive(Debug, Clone)]
+pub struct ModpackEnvironment {
+    pub mc_version: McVersion,
+    pub loader: ModLoader,
+    pub loader_version: Option<String>,
+    pub root_path: PathBuf,
+    pub data_epoch: DataEpoch,
+    pub tag_namespace: TagNamespace,
+}
+
+/// Определяет окружение по файлам на диске
+pub struct EnvironmentDetector;
+
+impl EnvironmentDetector {
+    pub fn detect(modpack_root: &Path) -> Result<ModpackEnvironment, DetectError> {
+        let loader = Self::detect_loader(modpack_root)?;
+        let (mc_version, loader_version) = Self::detect_versions(modpack_root, loader)?;
+        let data_epoch = mc_version.data_epoch();
+        let tag_namespace = Self::resolve_tag_namespace(&mc_version, loader);
+
+        Ok(ModpackEnvironment {
+            mc_version,
+            loader,
+            loader_version,
+            root_path: modpack_root.to_path_buf(),
+            data_epoch,
+            tag_namespace,
+        })
+    }
+
+    fn detect_loader(root: &Path) -> Result<ModLoader, DetectError> {
+        // Проверяем характерные файлы
+
+        // Fabric: наличие fabric.mod.json в любом моде,
+        // или .fabric директория, или fabric-loader в versions
+        let mods_dir = root.join("mods");
+        if mods_dir.exists() {
+            if let Some(loader) = Self::detect_loader_from_mods(&mods_dir)? {
+                return Ok(loader);
+            }
+        }
+
+        // Проверяем наличие характерных конфигов загрузчика
+        if root.join("config/fabric").exists()
+            || root.join("fabric.mod.json").exists()
+        {
+            return Ok(ModLoader::Fabric);
+        }
+
+        if root.join("config/quilt").exists() {
+            return Ok(ModLoader::Quilt);
+        }
+
+        // NeoForge vs Forge: проверяем версию
+        if root.join("config/fml.toml").exists() {
+            // fml.toml есть и в Forge, и в NeoForge
+            // Различаем по содержимому или наличию neoforge.mods.toml
+            if let Ok(entries) = std::fs::read_dir(&mods_dir) {
+                for entry in entries.flatten() {
+                    if entry.path().extension().map(|e| e == "jar").unwrap_or(false) {
+                        if let Ok(has_neo) = Self::jar_has_neoforge_marker(&entry.path()) {
+                            if has_neo {
+                                return Ok(ModLoader::NeoForge);
+                            }
+                        }
+                    }
+                }
+            }
+            return Ok(ModLoader::Forge);
+        }
+
+        Err(DetectError::UnknownLoader)
+    }
+
+    fn detect_loader_from_mods(mods_dir: &Path) -> Result<Option<ModLoader>, DetectError> {
+        // Открываем первый .jar и проверяем метаданные
+        for entry in std::fs::read_dir(mods_dir)?.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "jar").unwrap_or(false) {
+                if let Ok(file) = std::fs::File::open(&path) {
+                    if let Ok(mut archive) = zip::ZipArchive::new(file) {
+                        // Fabric
+                        if archive.by_name("fabric.mod.json").is_ok() {
+                            return Ok(Some(ModLoader::Fabric));
+                        }
+                        // Quilt
+                        if archive.by_name("quilt.mod.json").is_ok() {
+                            return Ok(Some(ModLoader::Quilt));
+                        }
+                        // NeoForge (1.20.5+)
+                        if archive.by_name("META-INF/neoforge.mods.toml").is_ok() {
+                            return Ok(Some(ModLoader::NeoForge));
+                        }
+                        // Forge
+                        if archive.by_name("META-INF/mods.toml").is_ok() {
+                            return Ok(Some(ModLoader::Forge));
+                        }
+                        // Legacy Forge
+                        if archive.by_name("mcmod.info").is_ok() {
+                            return Ok(Some(ModLoader::Forge));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    fn jar_has_neoforge_marker(jar_path: &Path) -> Result<bool, DetectError> {
+        let file = std::fs::File::open(jar_path)?;
+        let archive = zip::ZipArchive::new(file)?;
+        Ok(archive.file_names().any(|name| {
+            name.contains("neoforge") || name == "META-INF/neoforge.mods.toml"
+        }))
+    }
+
+    fn detect_versions(
+        root: &Path,
+        loader: ModLoader,
+    ) -> Result<(McVersion, Option<String>), DetectError> {
+        // Вариант 1: Читаем из manifest.json (CurseForge формат)
+        let manifest = root.join("manifest.json");
+        if manifest.exists() {
+            let content = std::fs::read_to_string(&manifest)?;
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(mc) = json.get("minecraft") {
+                    if let Some(version) = mc.get("version").and_then(|v| v.as_str()) {
+                        let mc_ver = McVersion::parse(version)
+                            .ok_or(DetectError::VersionParse)?;
+
+                        let loader_ver = mc
+                            .get("modLoaders")
+                            .and_then(|v| v.as_array())
+                            .and_then(|arr| arr.first())
+                            .and_then(|v| v.get("id"))
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+
+                        return Ok((mc_ver, loader_ver));
+                    }
+                }
+            }
+        }
+
+        // Вариант 2: Читаем из modrinth.index.json
+        let modrinth = root.join("modrinth.index.json");
+        if modrinth.exists() {
+            let content = std::fs::read_to_string(&modrinth)?;
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(deps) = json.get("dependencies").and_then(|v| v.as_object()) {
+                    if let Some(mc_ver_str) =
+                        deps.get("minecraft").and_then(|v| v.as_str())
+                    {
+                        let mc_ver = McVersion::parse(mc_ver_str)
+                            .ok_or(DetectError::VersionParse)?;
+                        let loader_ver = deps
+                            .get(match loader {
+                                ModLoader::Fabric => "fabric-loader",
+                                ModLoader::Quilt => "quilt-loader",
+                                ModLoader::Forge => "forge",
+                                ModLoader::NeoForge => "neoforge",
+                                _ => "forge",
+                            })
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+                        return Ok((mc_ver, loader_ver));
+                    }
+                }
+            }
+        }
+
+        // Вариант 3: Эвристика по файлам в папке versions/
+        // Вариант 4: Спрашиваем у пользователя
+        Err(DetectError::VersionNotFound)
+    }
+
+    fn resolve_tag_namespace(
+        version: &McVersion,
+        loader: ModLoader,
+    ) -> TagNamespace {
+        match (version.minor, loader) {
+            (21.., _) => TagNamespace::Common,                    // 1.21+ все используют c:
+            (_, ModLoader::Fabric | ModLoader::Quilt) => TagNamespace::Common, // Fabric всегда c:
+            (16..=20, ModLoader::Forge) => TagNamespace::Forge,   // Forge 1.16-1.20 → forge:
+            (16..=20, ModLoader::NeoForge) => TagNamespace::Common, // NeoForge → c:
+            _ => TagNamespace::Forge,
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum DetectError {
+    #[error("IO: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("ZIP: {0}")]
+    Zip(#[from] zip::result::ZipError),
+    #[error("Не удалось определить загрузчик")]
+    UnknownLoader,
+    #[error("Не удалось определить версию")]
+    VersionNotFound,
+    #[error("Не удалось распарсить версию")]
+    VersionParse,
+}

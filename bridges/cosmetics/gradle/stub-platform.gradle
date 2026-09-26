@@ -1,0 +1,48 @@
+/**
+ * Thin platform scaffold: packages CosmeticsCore + a session-aware bootstrap.
+ *
+ * Apply with:
+ *   ext.tbMc = "1.21.4"
+ *   ext.tbLoader = "fabric"
+ *   apply from: rootProject.file("gradle/stub-platform.gradle")
+ */
+
+apply plugin: "java"
+
+def tbMc = project.ext.tbMc as String
+def tbLoader = project.ext.tbLoader as String
+
+jar {
+    archiveBaseName = "tuffbox-cosmetics-${tbMc}-${tbLoader}"
+    dependsOn(":core:jar")
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+dependencies {
+    implementation project(":core")
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    if (tbMc.startsWith("1.12")) {
+        options.release = 8
+    }
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "mc", tbMc
+    inputs.property "loader", tbLoader
+    filesMatching(["fabric.mod.json", "META-INF/neoforge.mods.toml", "META-INF/mods.toml", "mcmod.info"]) {
+        expand version: project.version, mc: tbMc, loader: tbLoader
+    }
+}

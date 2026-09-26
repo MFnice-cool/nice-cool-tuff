@@ -1,0 +1,17 @@
+diff --git a/.github/workflows/build-windows.yml b/.github/workflows/build-windows.yml
+index 7bb964b..0d28876 100644
+--- a/.github/workflows/build-windows.yml
++++ b/.github/workflows/build-windows.yml
+@@ -135,6 +135,12 @@ jobs:
+       working-directory: apps/tuffbox-desktop
+       run: npm run check:bridge
+ 
++    # Release gate: the distributable exe must never be produced from a
++    # revision whose test suite is red. This is the only workflow that builds
++    # the binary users download, so it re-runs the same suite rust.yml runs.
++    - name: Rust test suite (release gate)
++      run: cargo test --workspace --verbose
++
+     - name: Build JEI runtime bridges
+       working-directory: bridges/jei-runtime
+       run: .\gradlew.bat syncDesktopResources --no-daemon

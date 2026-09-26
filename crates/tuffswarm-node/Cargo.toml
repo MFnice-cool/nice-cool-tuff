@@ -1,0 +1,44 @@
+[package]
+name = "tuffswarm-node"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Phase C TuffSwarm P2P node — Kademlia DHT + Gossipsub capsules + local control HTTP"
+
+[[bin]]
+name = "tuffswarm-node"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time", "io-util"] }
+axum = { version = "0.7", features = ["json"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs.workspace = true
+futures = "0.3"
+libp2p = { version = "0.54", features = [
+  "tokio",
+  "tcp",
+  "noise",
+  "yamux",
+  "gossipsub",
+  "kad",
+  "mdns",
+  "macros",
+  "identify",
+  "autonat",
+  "relay",
+  "dcutr",
+  "request-response",
+  "json",
+] }
+tuffbox-core = { path = "../tuffbox-core" }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+hex = { workspace = true }
+sha2 = { workspace = true }

@@ -1,0 +1,42 @@
+allprojects {
+    group = "dev.tuffbox"
+    version = "0.1.0"
+}
+
+subprojects {
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = "UTF-8"
+    }
+    // core stays on Java 8; platforms use 21 (or their own toolchain)
+    if (name != "core") {
+        tasks.withType(JavaCompile).configureEach {
+            options.release = 21
+        }
+    }
+}
+
+def cosmeticsJarModules = [
+    "fabric", "neoforge",
+    "fabric-1.21.4", "neoforge-1.21.4",
+    "fabric-1.21.11", "neoforge-1.21.11",
+    "fabric-26.1.2", "neoforge-26.1.2",
+    "fabric-26.2", "neoforge-26.2",
+    "fabric-1.20.1", "forge-1.20.1", "neoforge-1.20.1",
+    "fabric-1.16.5", "forge-1.16.5",
+    "forge-1.12.2",
+]
+
+tasks.register("syncDesktopResources", Copy) {
+    cosmeticsJarModules.each { mod ->
+        def p = findProject(":${mod}")
+        if (p != null) {
+            dependsOn("${mod}:jar")
+            from(p.layout.buildDirectory.dir("libs")) {
+                include("tuffbox-cosmetics-*.jar")
+                exclude("*-sources.jar", "*-dev.jar", "*-javadoc.jar")
+            }
+        }
+    }
+    into(layout.projectDirectory.dir("prebuilt"))
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}

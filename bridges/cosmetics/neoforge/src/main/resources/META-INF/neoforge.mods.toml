@@ -1,0 +1,11 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+
+[[mods]]
+modId="tuffbox_cosmetics"
+version="${file.jarVersion}"
+displayName="TuffBox Cosmetics"
+authors="TuffBox"
+description='''TuffBox cosmetics session bridge (NeoForge stub).'''
+side="CLIENT"

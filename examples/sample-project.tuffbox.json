@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "0.1.0",
+  "project": {
+    "id": "tuffcraft-rpg",
+    "name": "TuffCraft RPG",
+    "version": "0.1.0",
+    "description": "Example RPG modpack project for TuffBox IDE.",
+    "authors": ["TuffBox Team"]
+  },
+  "minecraft": {
+    "version": "1.20.1"
+  },
+  "loader": {
+    "type": "forge",
+    "version": "47.2.20"
+  },
+  "java": {
+    "major": 17,
+    "distribution": "temurin"
+  },
+  "profiles": [
+    {
+      "id": "client",
+      "name": "Client Full",
+      "side": "client",
+      "includeOptionalMods": true,
+      "includeShaders": true,
+      "memoryMb": 6144,
+      "jvmArgs": ["-XX:+UseG1GC"]
+    },
+    {
+      "id": "server",
+      "name": "Server Pack",
+      "side": "server",
+      "includeOptionalMods": false,
+      "includeShaders": false,
+      "memoryMb": 4096,
+      "jvmArgs": ["-XX:+UseG1GC"]
+    }
+  ],
+  "mods": [
+    {
+      "id": "oculus",
+      "name": "Oculus",
+      "source": {
+        "type": "modrinth",
+        "projectId": "GchcoXML",
+        "fileId": "example-file-id"
+      },
+      "version": "1.6.9",
+      "fileName": "oculus-mc1.20.1-1.6.9.jar",
+      "hashes": {
+        "sha1": "example-sha1",
+        "sha512": "example-sha512"
+      },
+      "side": "client",
+      "dependencies": [
+        {
+          "type": "requires",
+          "target": "embeddium",
+          "versionConstraint": ">=0.3.0",
+          "reason": "Renderer compatibility layer"
+        }
+      ],
+      "status": ["ok"]
+    },
+    {
+      "id": "embeddium",
+      "name": "Embeddium",
+      "source": {
+        "type": "modrinth",
+        "projectId": "sk9rgfiA",
+        "fileId": "example-file-id"
+      },
+      "version": "0.3.31",
+      "fileName": "embeddium-0.3.31+mc1.20.1.jar",
+      "hashes": {
+        "sha1": "example-sha1",
+        "sha512": "example-sha512"
+      },
+      "side": "client",
+      "dependencies": [],
+      "status": ["ok"]
+    }
+  ],
+  "overrides": {
+    "config": "overrides/config",
+    "kubejs": "overrides/kubejs",
+    "resourcepacks": "overrides/resourcepacks",
+    "shaderpacks": "overrides/shaderpacks"
+  }
+}

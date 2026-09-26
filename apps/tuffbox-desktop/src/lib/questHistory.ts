@@ -1,0 +1,21 @@
+/** Re-export — implementation lives in `@tuffbox/quest-lib`. */
+export {
+  createHistoryState,
+  serializeBookMeta,
+  parseBookMeta,
+  pushSnapshot,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+  clearHistory,
+  materializeChapters,
+  diffDirtyChapterIds,
+  dirtyIdsAgainstBaseline,
+  patchSavedBaseline,
+  chapterJsonMap,
+  type HistorySnapshot,
+  type HistoryBookMeta,
+  type HistoryExtras,
+  type HistoryState,
+} from "@tuffbox/quest-lib";

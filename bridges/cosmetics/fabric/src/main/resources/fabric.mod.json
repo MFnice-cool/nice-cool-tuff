@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "tuffbox_cosmetics",
+  "version": "${version}",
+  "name": "TuffBox Cosmetics",
+  "description": "TuffBox-only wings and profile sync. Skins/capes via CustomSkinLoader.",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.tuffbox.cosmetics.TuffBoxCosmeticsClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {},
+  "custom": {
+    "tuffbox:gui": "Right Shift — Cosmetics Menu"
+  }
+}

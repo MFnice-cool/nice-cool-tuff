@@ -1,0 +1,199 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ "master", "feat/svelte-5-migration" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # GHA cache backend (SCCACHE_GHA_ENABLED) proved flaky: Azure outages 400 at
+  # server startup, which kills every rustc invocation (RUSTC_WRAPPER) and the
+  # whole build. Plain sccache + actions/cache disk store is slower to warm
+  # but can never fail the build.
+  SCCACHE_GHA_ENABLED: "false"
+  SCCACHE_DIR: ${{ github.workspace }}/.sccache
+  SCCACHE_CACHE_SIZE: "2G"
+
+jobs:
+  build-windows:
+    name: Build Windows (.exe)
+    runs-on: windows-latest
+
+    steps:
+    - name: Free disk space
+      shell: pwsh
+      run: |
+        Write-Host "=== Before cleanup ==="
+        Get-PSDrive C | Format-Table Used, Free
+        # Remove pre-installed bloat that's never used
+        $targets = @(
+          "C:\Android",
+          "C:\Program Files\Microsoft SQL Server",
+          "C:\Program Files\dotnet",
+          "C:\Program Files\MongoDB",
+          "C:\Program Files\MySQL",
+          "C:\Program Files\PostgreSQL",
+          "C:\Program Files\Java\jdk-17*",
+          "C:\Program Files\Java\jdk-21*",
+          "C:\hostedtoolcache\windows\CodeQL"
+        )
+        foreach ($t in $targets) {
+          if (Test-Path $t) {
+            Write-Host "Removing $t"
+            Remove-Item -Recurse -Force $t -ErrorAction SilentlyContinue
+          }
+        }
+        # Clean npm/pip caches
+        npm cache clean --force 2>$null
+        Write-Host "=== After cleanup ==="
+        Get-PSDrive C | Format-Table Used, Free
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+        cache: 'npm'
+        cache-dependency-path: apps/tuffbox-desktop/package-lock.json
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Setup Java 21
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '21'
+
+    - name: Remove local cargo config (CI uses default linker)
+      run: Remove-Item -Force .cargo/config.toml -ErrorAction SilentlyContinue
+
+    - name: Run sccache
+      uses: mozilla-actions/sccache-action@v0.0.6
+      continue-on-error: true
+
+    # Fallback: if the GHA backend is unavailable (Azure hiccups produce
+    # "Our services aren't available right now" on the cache API), sccache
+    # falls back to a plain local disk store so the build still proceeds.
+    - name: Configure sccache fallback storage
+      run: 'echo "SCCACHE_ERROR_LOG=$(Join-Path $env:GITHUB_WORKSPACE ''sccache-error.log'')" | Out-File -FilePath $env:GITHUB_ENV -Append'
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-reg-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-reg-
+
+    - name: Cache sccache store
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.workspace }}/.sccache
+        key: ${{ runner.os }}-sccache-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-sccache-
+
+    - name: Show sccache stats after build
+      if: always()
+      shell: pwsh
+      run: sccache --show-stats 2>$null; if (Test-Path sccache-error.log) { Get-Content sccache-error.log -Tail 20 }
+
+    - name: Cache Gradle
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('bridges/jei-runtime/**/*.gradle*') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Install frontend dependencies
+      working-directory: apps/tuffbox-desktop
+      run: npm ci
+
+    - name: Verify frontend production build
+      working-directory: apps/tuffbox-desktop
+      run: |
+        npm run build
+        if (-not (Test-Path dist/index.html)) { throw "dist/index.html missing" }
+        if (-not (Get-ChildItem dist/assets/*.js -ErrorAction SilentlyContinue)) { throw "dist/assets/*.js missing" }
+
+    - name: Frontend perf/style regression guards
+      working-directory: apps/tuffbox-desktop
+      run: npm run lint:perf
+
+    - name: Bridge parity check (TS invoke ↔ Rust generate_handler)
+      working-directory: apps/tuffbox-desktop
+      run: npm run check:bridge
+
+    - name: Build JEI runtime bridges
+      working-directory: bridges/jei-runtime
+      run: .\gradlew.bat syncDesktopResources --no-daemon
+
+    - name: Build Tauri (Windows .exe)
+      working-directory: apps/tuffbox-desktop
+      run: npx tauri build --no-bundle 2>&1 | Tee-Object -FilePath $env:GITHUB_WORKSPACE/tauri-build.log
+
+    - name: Dump target tree on failure
+      if: failure()
+      shell: pwsh
+      run: |
+        Get-ChildItem -Recurse -File target -ErrorAction SilentlyContinue |
+          Where-Object { $_.FullName -match '\.(exe|msi|dll)$' } |
+          Select-Object FullName, Length | Format-Table -AutoSize
+        if (Test-Path $env:GITHUB_WORKSPACE/tauri-build.log) {
+          Write-Host "===== tauri-build.log (tail) ====="
+          Get-Content $env:GITHUB_WORKSPACE/tauri-build.log -Tail 80
+        }
+
+    - name: Upload build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tuffbox-build-log
+        path: tauri-build.log
+        if-no-files-found: ignore
+
+    - name: Locate build output
+      shell: pwsh
+      run: |
+        $candidates = @(
+          "target/release/tuffbox-desktop.exe",
+          "target/x86_64-pc-windows-msvc/release/tuffbox-desktop.exe",
+          "apps/tuffbox-desktop/src-tauri/target/release/tuffbox-desktop.exe",
+          "apps/tuffbox-desktop/src-tauri/target/x86_64-pc-windows-msvc/release/tuffbox-desktop.exe",
+          "target/debug/tuffbox-desktop.exe",
+          "target/x86_64-pc-windows-msvc/debug/tuffbox-desktop.exe"
+        )
+        $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if (-not $exe) {
+          Write-Host "===== searching for any tuffbox-desktop.exe ====="
+          Get-ChildItem -Recurse -Filter "tuffbox-desktop.exe" -ErrorAction SilentlyContinue |
+            Select-Object -First 20 FullName, Length | Format-Table -AutoSize
+          Write-Error "tuffbox-desktop.exe not found in any expected target dir"
+          exit 1
+        }
+        Write-Host "Found exe at: $exe ($((Get-Item $exe).Length) bytes)"
+        New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+        Copy-Item -Force $exe "artifacts/tuffbox-desktop.exe"
+        if (-not (Test-Path "artifacts/tuffbox-desktop.exe")) {
+          Write-Error "failed to copy exe into artifacts/"
+          exit 1
+        }
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: tuffbox-desktop-windows-${{ github.sha }}
+        path: artifacts/tuffbox-desktop.exe
+        if-no-files-found: error
+        retention-days: 14

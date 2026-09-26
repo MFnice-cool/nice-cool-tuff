@@ -1,0 +1,61 @@
+{
+  "nodes": [
+    {
+      "id": "minecraft:1.20.1",
+      "kind": "MinecraftVersion",
+      "label": "Minecraft 1.20.1"
+    },
+    {
+      "id": "loader:forge:47.2.20",
+      "kind": "Loader",
+      "label": "Forge 47.2.20"
+    },
+    {
+      "id": "mod:oculus",
+      "kind": "Mod",
+      "label": "Oculus 1.6.9"
+    },
+    {
+      "id": "mod:embeddium",
+      "kind": "Mod",
+      "label": "Embeddium 0.3.31"
+    },
+    {
+      "id": "mod:rubidium",
+      "kind": "Mod",
+      "label": "Rubidium"
+    }
+  ],
+  "edges": [
+    {
+      "from": "mod:oculus",
+      "to": "mod:embeddium",
+      "kind": "requires",
+      "constraint": ">=0.3.0"
+    },
+    {
+      "from": "mod:oculus",
+      "to": "loader:forge:47.2.20",
+      "kind": "requires_loader"
+    },
+    {
+      "from": "mod:oculus",
+      "to": "minecraft:1.20.1",
+      "kind": "requires_minecraft"
+    },
+    {
+      "from": "mod:rubidium",
+      "to": "mod:embeddium",
+      "kind": "conflicts",
+      "reason": "Both replace parts of the rendering pipeline"
+    }
+  ],
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "CONFLICTING_RENDERER_MODS",
+      "nodes": ["mod:rubidium", "mod:embeddium"],
+      "message": "Rubidium conflicts with Embeddium. Keep only one renderer optimization mod."
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tuffbox.dev/schemas/tuffbox.project.schema.json",
+  "title": "TuffBox Project Manifest",
+  "type": "object",
+  "required": ["schemaVersion", "project", "minecraft", "loader", "profiles", "mods"],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "project": {
+      "type": "object",
+      "required": ["id", "name", "version"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "description": { "type": "string" },
+        "authors": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "minecraft": {
+      "type": "object",
+      "required": ["version"],
+      "properties": {
+        "version": { "type": "string" }
+      }
+    },
+    "loader": {
+      "type": "object",
+      "required": ["type", "version"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["vanilla", "fabric", "forge", "neoforge", "quilt"]
+        },
+        "version": { "type": "string" }
+      }
+    },
+    "brief": {
+      "type": "object",
+      "properties": {
+        "goal": { "type": "string" },
+        "targetAudience": { "type": "string" },
+        "gameplayPillars": { "type": "array", "items": { "type": "string" } },
+        "constraints": { "type": "array", "items": { "type": "string" } },
+        "releaseTargets": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" }
+      }
+    },
+    "java": {
+      "type": "object",
+      "properties": {
+        "major": { "type": "integer" },
+        "distribution": { "type": "string" }
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "side"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "side": { "type": "string", "enum": ["client", "server", "both", "optional", "unknown"] },
+          "includeOptionalMods": { "type": "boolean" },
+          "includeShaders": { "type": "boolean" },
+          "memoryMb": { "type": "integer" },
+          "jvmArgs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "includeMods": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "mods": {
+      "type": "array",
+      "items": { "$ref": "mod-node.schema.json" }
+    },
+    "overrides": {
+      "type": "object",
+      "properties": {
+        "config": { "type": "string" },
+        "kubejs": { "type": "string" },
+        "resourcepacks": { "type": "string" },
+        "shaderpacks": { "type": "string" }
+      }
+    }
+  }
+}

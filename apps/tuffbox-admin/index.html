@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TuffBox Admin · Supabase</title>
+  <style>
+    :root {
+      --bg: #0c0c0e;
+      --panel: #141418;
+      --border: #2a2a32;
+      --text: #f3f3f5;
+      --muted: #9a9aa6;
+      --accent: #1bd96a;
+      --danger: #f87171;
+      --warn: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(circle at top left, rgba(27,217,106,.08), transparent 40%), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(20,20,24,.85);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    h1 { margin: 0; font-size: 18px; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .actions, .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    button, .btn {
+      border: 1px solid var(--border);
+      background: #1c1c22;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.primary { background: rgba(27,217,106,.15); border-color: rgba(27,217,106,.4); color: var(--accent); }
+    button.danger { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.35); color: var(--danger); }
+    button.ghost.active { border-color: rgba(27,217,106,.45); color: var(--accent); }
+    button:disabled { opacity: .5; cursor: wait; }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 28px 48px;
+      display: grid;
+      gap: 18px;
+    }
+    .view { display: none; gap: 18px; }
+    .view.active { display: grid; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+    .card .value { font-size: 32px; font-weight: 800; margin-top: 8px; }
+    .dot {
+      display: inline-block;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #22c55e; margin-right: 8px;
+      box-shadow: 0 0 0 3px rgba(34,197,94,.2);
+      vertical-align: middle;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      overflow: auto;
+    }
+    .panel h2 { margin: 0 0 12px; font-size: 15px; }
+    .row {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: end;
+    }
+    label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
+    input, select, textarea {
+      background: #0f0f12;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 10px;
+      min-width: 160px;
+      font: inherit;
+    }
+    textarea { min-width: min(100%, 420px); min-height: 64px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #c7f9d8; }
+    .muted { color: var(--muted); }
+    .err { color: #fca5a5; white-space: pre-wrap; }
+    .ok { color: #86efac; }
+    .chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .chip.open { color: var(--warn); border-color: rgba(251,191,36,.35); }
+    .chip.saved { color: var(--accent); border-color: rgba(27,217,106,.35); }
+    .chip.rejected { color: var(--danger); border-color: rgba(248,113,113,.35); }
+    .capsule {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: rgba(255,255,255,.02);
+    }
+    .capsule header {
+      position: static;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      backdrop-filter: none;
+      margin-bottom: 8px;
+    }
+    .capsule .solution { white-space: pre-wrap; margin: 8px 0; line-height: 1.45; }
+    .votes { color: var(--muted); font-size: 12px; }
+    .votes b.up { color: var(--accent); }
+    .votes b.down { color: var(--danger); }
+    @media (max-width: 900px) {
+      .cards { grid-template-columns: 1fr; }
+      header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>TuffBox Admin</h1>
+      <p>Онлайн · Crash Votes moderation · co-occurrence</p>
+    </div>
+    <div class="actions">
+      <div class="tabs">
+        <button class="ghost active" data-tab="online">Online</button>
+        <button class="ghost" data-tab="votes">Crash Votes</button>
+        <button class="ghost" data-tab="partners">Partners</button>
+      </div>
+      <button class="primary" id="btnRefresh">Refresh</button>
+      <button id="btnAuto">Auto: on</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="view active" id="view-online">
+      <section class="cards">
+        <div class="card">
+          <div class="label">Online now</div>
+          <div class="value"><span class="dot" id="onlineDot"></span><span id="onlineCount">—</span></div>
+        </div>
+        <div class="card">
+          <div class="label">In game now</div>
+          <div class="value" id="gameOnline">—</div>
+        </div>
+        <div class="card">
+          <div class="label">As of</div>
+          <div class="value" style="font-size:16px;margin-top:14px" id="asOf">—</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Online chart</h2>
+        <div class="row">
+          <label>Range
+            <select id="chartHours">
+              <option value="6">6h</option>
+              <option value="24" selected>24h</option>
+              <option value="72">3d</option>
+              <option value="168">7d</option>
+            </select>
+          </label>
+          <button id="btnChart">Reload chart</button>
+          <span class="muted" id="chartMeta"></span>
+        </div>
+        <div id="chartErr" class="err"></div>
+        <canvas id="onlineChart" width="1100" height="280" style="width:100%;max-width:1100px;height:280px;background:#0f0f12;border-radius:10px;border:1px solid var(--border)"></canvas>
+        <div class="row" style="margin-top:8px">
+          <span class="muted"><span style="display:inline-block;width:12px;height:3px;background:#1bd96a;vertical-align:middle;margin-right:6px"></span>Launcher online</span>
+          <span class="muted"><span style="display:inline-block;width:12px;height:3px;background:#60a5fa;vertical-align:middle;margin-right:6px"></span>In Minecraft</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Who’s online</h2>
+        <div id="onlineErr" class="err"></div>
+        <table>
+          <thead>
+            <tr><th>Device</th><th>Name</th><th>Version</th><th>Last seen</th><th>Session start</th></tr>
+          </thead>
+          <tbody id="onlineBody"></tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>Recent sessions (launcher + game)</h2>
+        <table>
+          <thead>
+            <tr><th>Kind</th><th>Device</th><th>Project</th><th>Started</th><th>Ended</th><th>Duration</th><th>Reason</th></tr>
+          </thead>
+          <tbody id="sessionsBody"></tbody>
+        </table>
+      </section>
+    </section>
+
+    <section class="view" id="view-votes">
+      <section class="panel">
+        <h2>Crash Votes · moderation</h2>
+        <p class="muted" style="margin-top:0">
+          Игроки голосуют Keep/Discard во вкладке Crash Votes. Здесь ты принимаешь (<b>saved</b>) или отклоняешь (<b>rejected</b>) фикс.
+          Секрет хранится только в этом браузере (localStorage).
+        </p>
+        <div class="row">
+          <label>Admin secret
+            <input id="adminSecret" type="password" placeholder="admin secret" autocomplete="off" />
+          </label>
+          <label>Queue
+            <select id="voteStatus">
+              <option value="open">open (needs review)</option>
+              <option value="saved">saved</option>
+              <option value="rejected">rejected</option>
+              <option value="all">all</option>
+            </select>
+          </label>
+          <button class="primary" id="btnLoadVotes">Load queue</button>
+          <button id="btnSaveSecret">Remember secret</button>
+        </div>
+        <div id="votesErr" class="err"></div>
+        <div id="votesOk" class="ok"></div>
+        <div id="votesList"></div>
+      </section>
+    </section>
+
+    <section class="view" id="view-partners">
+      <section class="panel">
+        <h2>Partners for mod</h2>
+        <div class="row">
+          <label>Mod id / slug
+            <input id="modId" placeholder="sodium" value="sodium" />
+          </label>
+          <label>Limit
+            <input id="modLimit" type="number" min="1" max="100" value="20" style="min-width:90px" />
+          </label>
+          <label>Loader (optional)
+            <input id="modLoader" placeholder="fabric" />
+          </label>
+          <label>MC (optional)
+            <input id="modMc" placeholder="1.20.1" />
+          </label>
+          <button class="primary" id="btnPartners">Load top partners</button>
+        </div>
+        <div id="partnersErr" class="err"></div>
+        <table>
+          <thead><tr><th>#</th><th>Partner</th><th>Pack count</th></tr></thead>
+          <tbody id="partnersBody"></tbody>
+        </table>
+      </section>
+    </section>
+  </main>
+
+  <script type="module">
+    const SUPABASE_URL = "https://vsoqnwknpueuubiovyjd.supabase.co";
+    const ANON_KEY = "sb_publishable_b0ICBMz_HvyRa8GioadWcg_Co5Vjljr";
+    const SECRET_KEY = "tuffbox.admin.moderationSecret";
+
+    const headers = {
+      apikey: ANON_KEY,
+      Authorization: `Bearer ${ANON_KEY}`,
+      "Content-Type": "application/json",
+    };
+
+    async function rpc(name, body = {}) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      let data;
+      try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+      if (!res.ok) {
+        const msg = data?.message || data?.error || text || res.statusText;
+        throw new Error(`${name}: ${msg}`);
+      }
+      return data;
+    }
+
+    function fmtTime(v) {
+      if (!v) return "—";
+      try { return new Date(v).toLocaleString(); } catch { return String(v); }
+    }
+    function fmtDur(sec) {
+      if (sec == null) return "open";
+      const s = Number(sec) || 0;
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const r = s % 60;
+      if (h) return `${h}h ${m}m`;
+      if (m) return `${m}m ${r}s`;
+      return `${r}s`;
+    }
+    function shortId(id) {
+      if (!id) return "—";
+      return id.length > 18 ? id.slice(0, 10) + "…" + id.slice(-4) : id;
+    }
+    function esc(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+    function adminSecret() {
+      return document.getElementById("adminSecret").value.trim();
+    }
+
+    // Tabs
+    let currentTab = "online";
+    document.querySelectorAll("[data-tab]").forEach((btn) => {
+      btn.onclick = () => {
+        currentTab = btn.dataset.tab;
+        document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("active", b === btn));
+        document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${currentTab}`));
+        if (currentTab === "votes") loadVotes();
+        if (currentTab === "partners") loadPartners();
+      };
+    });
+
+    async function refreshPresence() {
+      const err = document.getElementById("onlineErr");
+      err.textContent = "";
+      try {
+        const stats = await rpc("launcher_online_stats");
+        const count = stats?.onlineCount ?? 0;
+        const game = stats?.gameOnline ?? 0;
+        const list = Array.isArray(stats?.online) ? stats.online : [];
+        document.getElementById("onlineCount").textContent = String(count);
+        document.getElementById("gameOnline").textContent = String(game);
+        document.getElementById("asOf").textContent = fmtTime(stats?.asOf);
+        document.getElementById("onlineDot").style.opacity = count > 0 ? "1" : ".35";
+
+        document.getElementById("onlineBody").innerHTML = list.length
+          ? list.map((u) => `<tr>
+              <td><code>${shortId(u.deviceId)}</code></td>
+              <td>${esc(u.displayName || "—")}</td>
+              <td>${esc(u.appVersion || "—")}</td>
+              <td>${fmtTime(u.lastSeen)}</td>
+              <td>${fmtTime(u.sessionStartedAt)}</td>
+            </tr>`).join("")
+          : `<tr><td colspan="5" class="muted">Nobody online</td></tr>`;
+
+        const sessions = await rpc("launcher_recent_sessions", { p_limit: 80 });
+        const rows = Array.isArray(sessions) ? sessions : [];
+        document.getElementById("sessionsBody").innerHTML = rows.length
+          ? rows.map((s) => `<tr>
+              <td><span class="chip ${s.kind === "game" ? "open" : "saved"}">${esc(s.kind || "launcher")}</span></td>
+              <td><code>${shortId(s.device_id)}</code></td>
+              <td>${esc(s.project_name || "—")}</td>
+              <td>${fmtTime(s.started_at)}</td>
+              <td>${fmtTime(s.ended_at)}</td>
+              <td>${fmtDur(s.duration_seconds)}</td>
+              <td>${esc(s.end_reason || "—")}</td>
+            </tr>`).join("")
+          : `<tr><td colspan="7" class="muted">No sessions yet</td></tr>`;
+
+        await loadChart();
+      } catch (e) {
+        err.textContent = String(e.message || e);
+      }
+    }
+
+    function drawChart(points) {
+      const canvas = document.getElementById("onlineChart");
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "#0f0f12";
+      ctx.fillRect(0, 0, w, h);
+
+      if (!points.length) {
+        ctx.fillStyle = "#9a9aa6";
+        ctx.font = "14px Segoe UI";
+        ctx.fillText("No samples yet — open the launcher to start collecting.", 24, h / 2);
+        return;
+      }
+
+      const pad = { l: 40, r: 16, t: 16, b: 28 };
+      const maxY = Math.max(1, ...points.map((p) => Math.max(p.online || 0, p.game || 0)));
+      const minT = new Date(points[0].t).getTime();
+      const maxT = new Date(points[points.length - 1].t).getTime();
+      const span = Math.max(1, maxT - minT);
+      const xOf = (t) => pad.l + ((new Date(t).getTime() - minT) / span) * (w - pad.l - pad.r);
+      const yOf = (v) => pad.t + (1 - v / maxY) * (h - pad.t - pad.b);
+
+      // grid
+      ctx.strokeStyle = "#2a2a32";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + ((h - pad.t - pad.b) * i) / 4;
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(w - pad.r, y);
+        ctx.stroke();
+        ctx.fillStyle = "#9a9aa6";
+        ctx.font = "11px Segoe UI";
+        ctx.fillText(String(Math.round(maxY * (1 - i / 4))), 8, y + 4);
+      }
+
+      function line(key, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, i) => {
+          const x = xOf(p.t);
+          const y = yOf(Number(p[key] || 0));
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+      line("online", "#1bd96a");
+      line("game", "#60a5fa");
+
+      // time labels
+      ctx.fillStyle = "#9a9aa6";
+      ctx.font = "11px Segoe UI";
+      const mid = points[Math.floor(points.length / 2)];
+      ctx.fillText(fmtTime(points[0].t), pad.l, h - 8);
+      if (mid) ctx.fillText(fmtTime(mid.t), w / 2 - 40, h - 8);
+      ctx.fillText(fmtTime(points[points.length - 1].t), w - pad.r - 110, h - 8);
+    }
+
+    async function loadChart() {
+      const err = document.getElementById("chartErr");
+      err.textContent = "";
+      try {
+        const hours = Number(document.getElementById("chartHours").value) || 24;
+        const data = await rpc("launcher_online_series", { p_hours: hours });
+        const points = Array.isArray(data?.points) ? data.points : [];
+        document.getElementById("chartMeta").textContent =
+          `${points.length} samples · now ${data?.onlineNow ?? 0} launcher / ${data?.gameOnlineNow ?? 0} game`;
+        drawChart(points);
+      } catch (e) {
+        err.textContent = String(e.message || e);
+      }
+    }
+
+    async function loadPartners() {
+      const err = document.getElementById("partnersErr");
+      err.textContent = "";
+      const mod = document.getElementById("modId").value.trim();
+      const limit = Number(document.getElementById("modLimit").value) || 20;
+      const loader = document.getElementById("modLoader").value.trim() || null;
+      const mc = document.getElementById("modMc").value.trim() || null;
+      try {
+        const rows = await rpc("partners_for_mod", {
+          p_mod: mod,
+          p_limit: limit,
+          p_loader: loader,
+          p_mc_version: mc,
+        });
+        const list = Array.isArray(rows) ? rows : [];
+        document.getElementById("partnersBody").innerHTML = list.length
+          ? list.map((r, i) => `<tr>
+              <td>${i + 1}</td>
+              <td><code>${esc(r.partner)}</code></td>
+              <td>${r.pack_count}</td>
+            </tr>`).join("")
+          : `<tr><td colspan="3" class="muted">No partners for this mod yet</td></tr>`;
+      } catch (e) {
+        err.textContent = String(e.message || e);
+      }
+    }
+
+    function actionsHtml(actions) {
+      if (!Array.isArray(actions) || !actions.length) return `<div class="muted">No actions</div>`;
+      return `<ul>${actions.slice(0, 12).map((a) => {
+        const op = a.op || a.action_type || "?";
+        const mod = a.modId || a.mod_id || "";
+        const reason = a.reason || a.description || "";
+        return `<li><code>${esc(op)}</code>${mod ? ` <code>${esc(mod)}</code>` : ""} ${esc(reason)}</li>`;
+      }).join("")}</ul>`;
+    }
+
+    async function loadVotes() {
+      const err = document.getElementById("votesErr");
+      const ok = document.getElementById("votesOk");
+      const listEl = document.getElementById("votesList");
+      err.textContent = "";
+      ok.textContent = "";
+      const secret = adminSecret();
+      if (!secret) {
+        err.textContent = "Enter admin secret first.";
+        listEl.innerHTML = "";
+        return;
+      }
+      try {
+        const data = await rpc("list_crash_capsules_moderation", {
+          p_admin_secret: secret,
+          p_status: document.getElementById("voteStatus").value,
+          p_limit: 80,
+        });
+        const capsules = Array.isArray(data?.capsules) ? data.capsules : [];
+        if (!capsules.length) {
+          listEl.innerHTML = `<div class="muted">Queue empty for this filter.</div>`;
+          return;
+        }
+        listEl.innerHTML = capsules.map((c) => {
+          const hash = c.content_hash || c.contentHash;
+          const status = c.status || "open";
+          const confirm = c.confirm_count ?? c.confirmCount ?? 0;
+          const reject = c.reject_count ?? c.rejectCount ?? 0;
+          const fp = c.fingerprint_key || c.fingerprintKey || "";
+          const solution = c.solution || "";
+          const mc = c.mc_major || c.mcMajor || "—";
+          const loader = c.loader || "—";
+          return `<article class="capsule" data-hash="${esc(hash)}">
+            <header>
+              <div>
+                <span class="chip ${esc(status)}">${esc(status)}</span>
+                <code title="${esc(hash)}">${shortId(hash)}</code>
+                <span class="muted">${esc(loader)} · ${esc(mc)}</span>
+              </div>
+              <div class="votes">Keep <b class="up">${confirm}</b> · Discard <b class="down">${reject}</b></div>
+            </header>
+            <div class="muted"><code>${esc(fp)}</code></div>
+            <div class="solution">${esc(solution)}</div>
+            ${actionsHtml(c.actions)}
+            <div class="row" style="margin:10px 0 0">
+              <button class="primary" data-act="saved" data-hash="${esc(hash)}">Accept → saved</button>
+              <button class="danger" data-act="rejected" data-hash="${esc(hash)}">Reject</button>
+              <button data-act="open" data-hash="${esc(hash)}">Reopen</button>
+              <label>Note
+                <input class="note" data-hash="${esc(hash)}" placeholder="optional" />
+              </label>
+            </div>
+          </article>`;
+        }).join("");
+
+        listEl.querySelectorAll("button[data-act]").forEach((btn) => {
+          btn.onclick = () => moderate(btn.dataset.hash, btn.dataset.act);
+        });
+      } catch (e) {
+        listEl.innerHTML = "";
+        err.textContent = String(e.message || e);
+      }
+    }
+
+    async function moderate(hash, decision) {
+      const err = document.getElementById("votesErr");
+      const ok = document.getElementById("votesOk");
+      err.textContent = "";
+      ok.textContent = "";
+      const secret = adminSecret();
+      const noteInput = document.querySelector(`input.note[data-hash="${CSS.escape(hash)}"]`);
+      const note = noteInput?.value?.trim() || null;
+      try {
+        const res = await rpc("moderate_crash_capsule", {
+          p_admin_secret: secret,
+          p_content_hash: hash,
+          p_decision: decision,
+          p_note: note,
+        });
+        ok.textContent = `OK · ${shortId(res.contentHash || hash)} → ${res.status}`;
+        await loadVotes();
+      } catch (e) {
+        err.textContent = String(e.message || e);
+      }
+    }
+
+    let auto = true;
+    let timer = null;
+    function setAuto(on) {
+      auto = on;
+      document.getElementById("btnAuto").textContent = `Auto: ${on ? "on" : "off"}`;
+      if (timer) clearInterval(timer);
+      if (on) timer = setInterval(() => {
+        if (currentTab === "online") refreshPresence();
+      }, 10000);
+    }
+
+    document.getElementById("btnRefresh").onclick = () => {
+      if (currentTab === "online") refreshPresence();
+      else if (currentTab === "votes") loadVotes();
+      else loadPartners();
+    };
+    document.getElementById("btnAuto").onclick = () => setAuto(!auto);
+    document.getElementById("btnPartners").onclick = () => loadPartners();
+    document.getElementById("btnLoadVotes").onclick = () => loadVotes();
+    document.getElementById("btnChart").onclick = () => loadChart();
+    document.getElementById("chartHours").onchange = () => loadChart();
+    document.getElementById("btnSaveSecret").onclick = () => {
+      localStorage.setItem(SECRET_KEY, adminSecret());
+      document.getElementById("votesOk").textContent = "Secret saved in this browser.";
+    };
+    document.getElementById("voteStatus").onchange = () => loadVotes();
+
+    const saved = localStorage.getItem(SECRET_KEY);
+    if (saved) document.getElementById("adminSecret").value = saved;
+
+    setAuto(true);
+    refreshPresence();
+  </script>
+</body>
+</html>

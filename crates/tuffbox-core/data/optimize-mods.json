@@ -1,0 +1,476 @@
+{
+  "schemaVersion": 1,
+  "mods": {
+    "sodium": {
+      "name": "Sodium",
+      "modrinthSlug": "sodium",
+      "curseforgeSlug": "sodium",
+      "reason": "Modern rendering engine — largest client FPS gain (Fabric/Quilt)",
+      "risk": "low",
+      "category": "rendering",
+      "loaders": ["fabric", "quilt"]
+    },
+    "sodium-extra": {
+      "name": "Sodium Extra",
+      "modrinthSlug": "sodium-extra",
+      "curseforgeSlug": "sodium-extra",
+      "reason": "Extra Sodium quality/performance toggles",
+      "risk": "low",
+      "category": "rendering",
+      "loaders": ["fabric", "quilt"]
+    },
+    "reeses-sodium-options": {
+      "name": "Reese's Sodium Options",
+      "modrinthSlug": "reeses-sodium-options",
+      "curseforgeSlug": "reeses-sodium-options",
+      "reason": "Better Sodium video settings UI",
+      "risk": "low",
+      "category": "rendering",
+      "loaders": ["fabric", "quilt"]
+    },
+    "lithium": {
+      "name": "Lithium",
+      "modrinthSlug": "lithium",
+      "curseforgeSlug": "lithium",
+      "reason": "General game-logic and tick optimizations",
+      "risk": "low",
+      "category": "gameplay",
+      "loaders": ["fabric", "quilt"]
+    },
+    "ferrite-core": {
+      "name": "FerriteCore",
+      "modrinthSlug": "ferrite-core",
+      "curseforgeSlug": "ferritecore",
+      "reason": "Lowers memory use of block states and models",
+      "risk": "low",
+      "category": "memory",
+      "loaders": ["fabric", "quilt", "forge", "neoforge"]
+    },
+    "immediatelyfast": {
+      "name": "ImmediatelyFast",
+      "modrinthSlug": "immediatelyfast",
+      "curseforgeSlug": "immediatelyfast",
+      "reason": "Faster immediate-mode rendering (maps, GUIs, particles)",
+      "risk": "low",
+      "category": "rendering",
+      "loaders": ["fabric", "quilt", "forge", "neoforge"]
+    },
+    "modernfix": {
+      "name": "ModernFix",
+      "modrinthSlug": "modernfix",
+      "curseforgeSlug": "modernfix",
+      "reason": "Launch-time and runtime performance fixes",
+      "risk": "low",
+      "category": "gameplay",
+      "loaders": ["fabric", "quilt", "forge", "neoforge"]
+    },
+    "entityculling": {
+      "name": "Entity Culling",
+      "modrinthSlug": "entityculling",
+      "curseforgeSlug": "entity-culling",
+      "reason": "Skips rendering entities blocked from view",
+      "risk": "low",
+      "category": "rendering",
+      "loaders": ["fabric", "quilt", "forge", "neoforge"]
+    },
+    "moreculling": {
+      "name": "More Culling",
+      "modrinthSlug": "moreculling",
+      "curseforgeSlug": "more-culling",
+      "reason": "Extra face culling for blocks and entities",
+      "risk": "low",
+      "category": "rendering",
+      "loaders": ["fabric", "quilt"]
+    },
+    "dynamic-fps": {
+      "name": "Dynamic FPS",
+      "modrinthSlug": "dynamic-fps",
+      "curseforgeSlug": "dynamic-fps",
+      "reason": "Lowers FPS when the game is unfocused",
+      "risk": "low",
+      "category": "client",
+      "loaders": ["fabric", "quilt"]
+    },
+    "iris": {
+      "name": "Iris",
+      "modrinthSlug": "iris",
+      "curseforgeSlug": "irisshaders",
+      "reason": "Shader loader built for Sodium (optional)",
+      "risk": "medium",
+      "category": "shaders",
+      "loaders": ["fabric", "quilt"]
+    },
+    "indium": {
+      "name": "Indium",
+      "modrinthSlug": "indium",
+      "curseforgeSlug": "indium",
+      "reason": "Fabric Rendering API support for Sodium",
+      "risk": "low",
+      "category": "rendering",
+      "loaders": ["fabric", "quilt"]
+    },
+    "c2me-fabric": {
+      "name": "C2ME",
+      "modrinthSlug": "c2me-fabric",
+      "curseforgeSlug": "c2me-fabric",
+      "reason": "Concurrent chunk generation and loading",
+      "risk": "medium",
+      "category": "worldgen",
+      "loaders": ["fabric", "quilt"]
+    },
+    "bobby": {
+      "name": "Bobby",
+      "modrinthSlug": "bobby",
+      "curseforgeSlug": "bobby",
+      "reason": "Client-side chunk cache beyond server view distance",
+      "risk": "low",
+      "category": "client",
+      "loaders": ["fabric", "quilt"]
+    },
+    "starlight": {
+      "name": "Starlight",
+      "modrinthSlug": "starlight",
+      "curseforgeSlug": "starlight",
+      "reason": "Faster lighting engine (pre-1.20 worlds)",
+      "risk": "low",
+      "category": "lighting",
+      "loaders": ["fabric", "quilt"]
+    },
+    "krypton": {
+      "name": "Krypton",
+      "modrinthSlug": "krypton",
+      "curseforgeSlug": "krypton",
+      "reason": "Network stack optimizations",
+      "risk": "low",
+      "category": "network",
+      "loaders": ["fabric", "quilt"]
+    },
+    "lazydfu": {
+      "name": "LazyDFU",
+      "modrinthSlug": "lazydfu",
+      "curseforgeSlug": "lazydfu",
+      "reason": "Speeds up DataFixerUpper during startup",
+      "risk": "low",
+      "category": "startup",
+      "loaders": ["fabric", "quilt"]
+    },
+    "nvidium": {
+      "name": "Nvidium",
+      "modrinthSlug": "nvidium",
+      "curseforgeSlug": "nvidium",
+      "reason": "NVIDIA-only Sodium companion renderer (optional)",
+      "risk": "medium",
+      "category": "rendering",
+      "loaders": ["fabric", "quilt"]
+    },
+    "embeddium": {
+      "name": "Embeddium",
+      "modrinthSlug": "embeddium",
+      "curseforgeSlug": "embeddium",
+      "reason": "Sodium-based renderer for Forge / NeoForge",
+      "risk": "low",
+      "category": "rendering",
+      "loaders": ["forge", "neoforge"]
+    },
+    "oculus": {
+      "name": "Oculus",
+      "modrinthSlug": "oculus",
+      "curseforgeSlug": "oculus",
+      "reason": "Shader loader for Embeddium (optional)",
+      "risk": "medium",
+      "category": "shaders",
+      "loaders": ["forge", "neoforge"]
+    },
+    "radium": {
+      "name": "Radium",
+      "modrinthSlug": "radium",
+      "curseforgeSlug": "radium",
+      "reason": "Lithium-like tick optimizations for NeoForge",
+      "risk": "low",
+      "category": "gameplay",
+      "loaders": ["neoforge"]
+    },
+    "canary": {
+      "name": "Canary",
+      "modrinthSlug": "canary",
+      "curseforgeSlug": "canary",
+      "reason": "Lithium-like optimizations for Forge",
+      "risk": "low",
+      "category": "gameplay",
+      "loaders": ["forge"]
+    }
+  },
+  "profiles": {
+    "fabric": {
+      "default": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "moreculling",
+        "dynamic-fps",
+        "indium",
+        "c2me-fabric",
+        "bobby"
+      ],
+      "1.16.5": [
+        "sodium",
+        "sodium-extra",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "starlight",
+        "krypton",
+        "lazydfu",
+        "iris",
+        "indium"
+      ],
+      "1.17.1": [
+        "sodium",
+        "sodium-extra",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "starlight",
+        "krypton",
+        "lazydfu",
+        "iris",
+        "indium"
+      ],
+      "1.18.2": [
+        "sodium",
+        "sodium-extra",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "starlight",
+        "krypton",
+        "lazydfu",
+        "iris",
+        "indium",
+        "c2me-fabric"
+      ],
+      "1.19.4": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "starlight",
+        "krypton",
+        "lazydfu",
+        "iris",
+        "indium",
+        "c2me-fabric",
+        "bobby"
+      ],
+      "1.20.1": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "moreculling",
+        "dynamic-fps",
+        "iris",
+        "indium",
+        "c2me-fabric",
+        "bobby",
+        "krypton",
+        "lazydfu",
+        "nvidium"
+      ],
+      "1.20.4": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "moreculling",
+        "dynamic-fps",
+        "iris",
+        "indium",
+        "c2me-fabric",
+        "bobby",
+        "krypton",
+        "nvidium"
+      ],
+      "1.21": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "moreculling",
+        "dynamic-fps",
+        "iris",
+        "indium",
+        "c2me-fabric",
+        "bobby"
+      ],
+      "1.21.1": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "moreculling",
+        "dynamic-fps",
+        "iris",
+        "indium",
+        "c2me-fabric",
+        "bobby"
+      ],
+      "1.21.4": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "moreculling",
+        "dynamic-fps",
+        "iris",
+        "indium",
+        "c2me-fabric",
+        "bobby"
+      ]
+    },
+    "quilt": {
+      "default": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "moreculling",
+        "dynamic-fps",
+        "indium",
+        "c2me-fabric",
+        "bobby"
+      ],
+      "1.20.1": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "moreculling",
+        "dynamic-fps",
+        "iris",
+        "indium",
+        "c2me-fabric",
+        "bobby",
+        "krypton",
+        "lazydfu"
+      ],
+      "1.21.1": [
+        "sodium",
+        "sodium-extra",
+        "reeses-sodium-options",
+        "lithium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "moreculling",
+        "dynamic-fps",
+        "iris",
+        "indium",
+        "c2me-fabric",
+        "bobby"
+      ]
+    },
+    "neoforge": {
+      "default": [
+        "embeddium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "radium",
+        "oculus"
+      ],
+      "1.20.1": [
+        "embeddium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "radium",
+        "oculus"
+      ],
+      "1.21.1": [
+        "embeddium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "radium",
+        "oculus"
+      ]
+    },
+    "forge": {
+      "default": [
+        "embeddium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "canary",
+        "oculus"
+      ],
+      "1.20.1": [
+        "embeddium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "canary",
+        "oculus"
+      ],
+      "1.19.4": [
+        "embeddium",
+        "ferrite-core",
+        "immediatelyfast",
+        "modernfix",
+        "entityculling",
+        "canary",
+        "oculus"
+      ]
+    }
+  }
+}

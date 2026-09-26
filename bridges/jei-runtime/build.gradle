@@ -1,0 +1,22 @@
+allprojects {
+    group = "dev.tuffbox"
+    version = "0.1.0"
+}
+
+subprojects {
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = "UTF-8"
+        options.release = 21
+    }
+}
+
+tasks.register("syncDesktopResources", Copy) {
+    dependsOn(":fabric:build", ":neoforge:build")
+    from(project(":fabric").layout.buildDirectory.dir("libs")) {
+        include("tuffbox-jei-bridge-*.jar")
+    }
+    from(project(":neoforge").layout.buildDirectory.dir("libs")) {
+        include("tuffbox-jei-bridge-*.jar")
+    }
+    into(layout.projectDirectory.dir("prebuilt"))
+}

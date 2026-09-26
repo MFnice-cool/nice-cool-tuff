@@ -1,0 +1,94 @@
+/* Procedural Minecraft-flavoured pixel textures — pure CSS, zero assets.
+   Layer stack is shared; each variant only re-colors the three speckle
+   tones via --tex-speck-a (light fleck) / --tex-speck-b (dark fleck) /
+   --tex-speck-c (checker). Themes may override the vars per data-theme. */
+
+:root {
+  --tex-size: 16px;
+  --tex-speck-a: rgba(255, 255, 255, 0.05);
+  --tex-speck-b: rgba(0, 0, 0, 0.16);
+  --tex-speck-c: rgba(0, 0, 0, 0.06);
+
+  /* Default app shell: faint stone speckle over the base color. Themes
+     that set their own --app-shell-bg are untouched (higher specificity).
+     Tile sizes are baked into each layer (`0 0 / size`): App.svelte paints
+     the shell via the scoped `background:` shorthand, which would reset a
+     separate background-size rule back to auto. */
+  --app-shell-bg:
+    radial-gradient(circle at 22% 30%, rgba(255, 255, 255, 0.035) 0 10%, transparent 11%) 0 0 / var(--tex-size) var(--tex-size),
+    radial-gradient(circle at 68% 12%, rgba(0, 0, 0, 0.12) 0 12%, transparent 13%) 0 0 / var(--tex-size) var(--tex-size),
+    radial-gradient(circle at 82% 64%, rgba(255, 255, 255, 0.03) 0 9%, transparent 10%) 0 0 / var(--tex-size) var(--tex-size),
+    radial-gradient(circle at 38% 78%, rgba(0, 0, 0, 0.10) 0 13%, transparent 14%) 0 0 / var(--tex-size) var(--tex-size),
+    repeating-conic-gradient(rgba(0, 0, 0, 0.045) 0% 25%, transparent 0% 50%) 0 0 / calc(var(--tex-size) / 2) calc(var(--tex-size) / 2),
+    var(--bg-primary);
+}
+
+/* Shared speckle stack for component surfaces (hero fallback, vitrine…). */
+:where(.tex-stone, .tex-dirt, .tex-grass, .tex-deepslate, .tex-netherrack, .tex-sculk, .tex-amethyst) {
+  background-image:
+    radial-gradient(circle at 22% 30%, var(--tex-speck-a) 0 10%, transparent 11%),
+    radial-gradient(circle at 68% 12%, var(--tex-speck-b) 0 12%, transparent 13%),
+    radial-gradient(circle at 82% 64%, var(--tex-speck-a) 0 9%, transparent 10%),
+    radial-gradient(circle at 38% 78%, var(--tex-speck-b) 0 13%, transparent 14%),
+    radial-gradient(circle at 8% 88%, var(--tex-speck-c) 0 8%, transparent 9%),
+    repeating-conic-gradient(var(--tex-speck-c) 0% 25%, transparent 0% 50%);
+  background-size:
+    var(--tex-size) var(--tex-size),
+    var(--tex-size) var(--tex-size),
+    var(--tex-size) var(--tex-size),
+    var(--tex-size) var(--tex-size),
+    var(--tex-size) var(--tex-size),
+    calc(var(--tex-size) / 2) calc(var(--tex-size) / 2);
+  image-rendering: pixelated;
+}
+
+.tex-stone {
+  --tex-speck-a: rgba(255, 255, 255, 0.05);
+  --tex-speck-b: rgba(0, 0, 0, 0.16);
+  --tex-speck-c: rgba(0, 0, 0, 0.06);
+}
+
+.tex-dirt {
+  --tex-speck-a: rgba(196, 146, 98, 0.10);
+  --tex-speck-b: rgba(28, 17, 9, 0.22);
+  --tex-speck-c: rgba(64, 42, 24, 0.10);
+}
+
+.tex-grass {
+  --tex-speck-a: rgba(122, 220, 110, 0.10);
+  --tex-speck-b: rgba(24, 34, 14, 0.20);
+  --tex-speck-c: rgba(70, 120, 50, 0.10);
+}
+
+.tex-deepslate {
+  --tex-speck-a: rgba(160, 190, 210, 0.045);
+  --tex-speck-b: rgba(0, 0, 0, 0.26);
+  --tex-speck-c: rgba(10, 14, 18, 0.10);
+}
+
+.tex-netherrack {
+  --tex-speck-a: rgba(255, 122, 82, 0.08);
+  --tex-speck-b: rgba(22, 5, 7, 0.26);
+  --tex-speck-c: rgba(120, 32, 28, 0.10);
+}
+
+.tex-sculk {
+  --tex-speck-a: rgba(47, 214, 200, 0.10);
+  --tex-speck-b: rgba(0, 0, 0, 0.28);
+  --tex-speck-c: rgba(16, 60, 64, 0.12);
+}
+
+.tex-amethyst {
+  --tex-speck-a: rgba(198, 156, 255, 0.10);
+  --tex-speck-b: rgba(10, 5, 20, 0.24);
+  --tex-speck-c: rgba(96, 62, 150, 0.10);
+}
+
+/* Potato PC: no texture repaint cost anywhere. */
+html.potato-pc :where(.tex-stone, .tex-dirt, .tex-grass, .tex-deepslate, .tex-netherrack, .tex-sculk, .tex-amethyst) {
+  background-image: none;
+}
+
+html.potato-pc {
+  --app-shell-bg: var(--bg-primary);
+}

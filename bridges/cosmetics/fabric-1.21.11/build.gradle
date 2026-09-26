@@ -1,0 +1,11 @@
+ext.tbMc = "1.21.11"
+ext.tbLoader = "fabric"
+apply from: rootProject.file("gradle/stub-platform.gradle")
+
+repositories {
+    maven { url = "https://maven.fabricmc.net/" }
+}
+
+dependencies {
+    compileOnly "net.fabricmc:fabric-loader:0.16.9"
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tuffbox.dev/schemas/mod-node.schema.json",
+  "title": "TuffBox Mod Node",
+  "type": "object",
+  "required": ["id", "name", "source", "version", "side"],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "source": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["modrinth", "curseforge", "github", "local", "direct"]
+        },
+        "projectId": { "type": "string" },
+        "fileId": { "type": "string" },
+        "url": { "type": "string" },
+        "path": { "type": "string" }
+      }
+    },
+    "version": { "type": "string" },
+    "fileName": { "type": "string" },
+    "hashes": {
+      "type": "object",
+      "properties": {
+        "sha1": { "type": "string" },
+        "sha512": { "type": "string" }
+      }
+    },
+    "side": {
+      "type": "string",
+      "enum": ["client", "server", "both", "optional", "unknown"]
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "target"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["requires", "optional", "conflicts", "breaks_with", "replaces"]
+          },
+          "target": { "type": "string" },
+          "versionConstraint": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "status": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "missing_dependency",
+          "version_mismatch",
+          "conflict",
+          "duplicate",
+          "deprecated",
+          "unknown_side",
+          "update_available",
+          "risky_update",
+          "local_only",
+          "unresolved"
+        ]
+      }
+    }
+  }
+}

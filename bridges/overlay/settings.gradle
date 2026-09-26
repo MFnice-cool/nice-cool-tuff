@@ -1,0 +1,26 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = "https://maven.fabricmc.net/" }
+        maven { url = "https://maven.neoforged.net/releases/" }
+        maven { url = "https://maven.minecraftforge.net/" }
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        mavenCentral()
+        maven { url = "https://maven.fabricmc.net/" }
+        maven { url = "https://maven.neoforged.net/releases/" }
+        maven { url = "https://maven.minecraftforge.net/" }
+        // WATERMeDIA releases (compileOnly API surface)
+        maven { url = "https://api.modrinth.com/maven" }
+    }
+}
+
+rootProject.name = "tuffbox-overlay"
+
+include("core")
+include("fabric")
+include("neoforge")

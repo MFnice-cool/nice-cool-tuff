@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/*
+ * @tuffbox/layout-lib — Tailwind v4 theme, wired to the TuffBox design tokens
+ * defined in apps/tuffbox-desktop/src/styles.css (:root).
+ * Layout-lib only consumes spacing/radius/border tokens; colors stay app-owned.
+ */
+@theme {
+  --font-sans: var(--font-sans, system-ui, sans-serif);
+
+  /* Radius: reuse the app's rounded-corners tokens so the
+     check-border-radius CI gate stays meaningful. */
+  --radius-sm: var(--border-radius-sm, 8px);
+  --radius-md: var(--border-radius-md, 12px);
+  --radius-lg: var(--border-radius-lg, 16px);
+  --radius-xl: var(--border-radius-xl, 24px);
+
+  /* App shell dimensions */
+  --spacing-shell: 3.5rem; /* header / sidebar width-height scale */
+  --spacing-rail: 4rem; /* bottom rail height */
+}
+
+@layer base {
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+}

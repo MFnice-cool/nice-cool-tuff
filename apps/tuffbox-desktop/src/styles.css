@@ -1,0 +1,729 @@
+/* Tailwind v4 without preflight: the preflight reset breaks the app's existing
+   scoped styles, so only theme variables + utilities are pulled in.
+
+   Layer order MUST be declared before the imports. Tailwind's own index.css
+   ships `@layer theme, base, components, utilities;`; importing theme.css /
+   utilities.css individually leaves the order implicit, and any later `base`
+   block would then outrank `utilities`. Unlayered CSS (this file's element
+   skins, themes.css) outranks every layer — that is why the legacy global
+   `*`/`button`/`input` rules silently killed the Tailwind utilities the UI is
+   migrating to: a button marked `bg-transparent px-3.5 py-3` still rendered as
+   the flat ore-grey 6/12px default. Element-level defaults now live in `base`
+   so utilities win; component/theme skins stay unlayered on purpose. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "@tuffbox/layout-lib/styles.css";
+@source "../../../packages/layout-lib/src";
+
+:root {
+  /* Cool steel-graphite surfacing — not pure black; a faint blue-violet
+     undertone keeps the shell calm, layered in perceptible luminance steps. */
+  --bg-primary: #0b1116;
+  --bg-secondary: #121820;
+  --bg-tertiary: #1a212b;
+  --bg-elevated: #232b37;
+  --bg-hover: #2d3642;
+  --bg-active: #3a4453;
+
+  --text-primary: #eef2f8;
+  --text-secondary: #a8b1c0;
+  /* Muted labels must clear WCAG AA 4.5:1 on every surface they sit on —
+     #8d99ad measures 5.6:1 on bg-tertiary and 4.9:1 on bg-elevated. */
+  --text-muted: #8d99ad;
+
+  /* Brand stays green, but as a studio-grade jade instead of neon. */
+  --accent-primary: #2ed488;
+  --accent-hover: #23b876;
+  --accent-secondary: #8a79f7;
+  --accent-danger: #ef4444;
+  --accent-warning: #f5a524;
+
+  /* Motion tokens (Spectra-smoothness plan): one easing family everywhere.
+     --motion-smooth is the signature curve for hovers/presses/overlays. */
+  --motion-fast: 160ms;
+  --motion-medium: 240ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --motion-hover-delay: 70ms;
+
+  --border-color: #2a313b;
+  --border-radius-sm: 8px;
+  --border-radius-md: 12px;
+  --border-radius-lg: 16px;
+  --border-radius-xl: 24px;
+
+  /* Self-hosted variable fonts (see @fontsource-variable/* in main.ts) —
+     full Cyrillic + Latin, weight axis 100–900 in one file per subset. */
+  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-minecraft: "Press Start 2P", "Minecraft", ui-monospace, monospace;
+  --font-base: 14px;
+  --shadow-sm: 0 1px 2px rgba(3, 6, 10, 0.5);
+  --shadow-md: 0 6px 18px rgba(3, 6, 10, 0.45);
+  --shadow-lg: 0 18px 48px rgba(3, 6, 10, 0.52);
+
+  /* Text on primary accent surfaces (Launch / CTA) — deep green-black.
+     Dark enough to keep AA on the danger fill too (#ef4444 → 5.0:1). */
+  --on-accent: #04150c;
+
+  /* Minecraft-style nick labels (skin panel, account lists). */
+  --mc-nick-color: #fff;
+  --mc-nick-shadow:
+    2px 2px 0 #46506a,
+    -1px 0 0 #000,
+    1px 0 0 #000,
+    0 -1px 0 #000,
+    0 1px 0 #000;
+  --mc-nick-shadow-soft: 1px 1px 0 #46506a;
+
+  /* Account / type badges — readable on dark chrome by default. */
+  --badge-ms-fg: #93c5fd;
+  --badge-ms-bg: rgba(59, 130, 246, 0.15);
+  --badge-ms-border: rgba(59, 130, 246, 0.35);
+  --badge-offline-fg: #fde68a;
+  --badge-offline-bg: rgba(245, 158, 11, 0.12);
+  --badge-offline-border: rgba(245, 158, 11, 0.3);
+  --badge-ygg-fg: #e9d5ff;
+  --badge-ygg-bg: rgba(168, 85, 247, 0.15);
+  --badge-ygg-border: rgba(168, 85, 247, 0.35);
+
+  /* Interface scale (Settings → Appearance). Applied as CSS zoom on <html>
+     so fixed overlays, pointer hit-tests, and layout share one coordinate space.
+     (Zoom only on .app-shell used to offset Library menus / folder drag.) */
+  --ui-scale: 1;
+
+  /* Poster-home: glass only over pack art; overlay type stays light on the photo. */
+  --glass-bg: rgba(10, 13, 17, 0.55);
+  --glass-border: color-mix(in srgb, #fff 14%, var(--border-color));
+  --glass-blur: 14px;
+  --glass-saturate: 140%;
+  --glass-highlight: color-mix(in srgb, #fff 12%, transparent);
+  --hero-fg: #f3f6fb;
+  --hero-fg-muted: color-mix(in srgb, #f3f6fb 74%, transparent);
+  --hero-scrim:
+    linear-gradient(90deg, rgba(9, 12, 15, 0.76) 0%, transparent 55%),
+    linear-gradient(0deg, rgba(9, 12, 15, 0.7) 0%, transparent 52%);
+  --play-glow: 0 8px 28px color-mix(in srgb, var(--accent-primary) 34%, transparent);
+  --play-glow-hover: 0 12px 36px color-mix(in srgb, var(--accent-primary) 46%, transparent);
+
+  /* Home dashboard quartz backdrop (dark default). Light themes override these
+     to a pale stone; the panel is shown for every theme and can be disabled in
+     Settings → Appearance → "Home backdrop" (home only). */
+  --home-backdrop-line: rgba(255, 255, 255, 0.05);
+  --home-backdrop-sheen: rgba(255, 255, 255, 0.1);
+  --home-backdrop-a: #13161b;
+  --home-backdrop-b: #0e1115;
+  --home-backdrop-c: #161a20;
+}
+
+/* Fill the viewport after html zoom shrinks/enlarges CSS pixels. */
+html[data-ui-scaled="1"],
+html[data-ui-scaled="1"] body,
+html[data-ui-scaled="1"] #app {
+  width: calc(100vw / var(--ui-scale, 1));
+  height: calc(100vh / var(--ui-scale, 1));
+}
+
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("./assets/fonts/PressStart2P.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* CodeMirror 6 injects its own UNLAYERED `font-family: monospace` on
+   .cm-editor — a layered rule would lose the cascade to it, so this stays
+   unlayered too (and one notch more specific) to give config/SNBT/KubeJS
+   editors the same JetBrains Mono token as every other code surface. */
+body .cm-editor {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+}
+
+/* Light theme — warm green-gray canvas (intentional light UI, not inverted dark). */
+[data-theme="light"],
+[data-theme="tuffbox-light"] {
+  --bg-primary: #f3f5f1;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e9eee8;
+  --bg-elevated: #e2e8df;
+  --bg-hover: #d5ddd1;
+  --bg-active: #c5d0bf;
+
+  --text-primary: #152019;
+  --text-secondary: #3a4a40;
+  --text-muted: #5f7166;
+
+  /* Deeper brand green/reds so the white on-accent ink clears AA 4.5:1
+     (old #0a9a44 measured 3.7:1 with white text; #087f38 → 5.1:1). */
+  --accent-primary: #087f38;
+  --accent-hover: #076b30;
+  --accent-secondary: #5c33c4;
+  --accent-danger: #b91c1c;
+  --accent-warning: #c2410c;
+
+  --border-color: #cfd8cf;
+  --shadow-sm: 0 1px 2px rgba(21, 40, 28, 0.06);
+  --shadow-md: 0 4px 14px rgba(21, 40, 28, 0.09);
+  --shadow-lg: 0 14px 36px rgba(21, 40, 28, 0.12);
+
+  --on-accent: #ffffff;
+
+  /* Soft MC nick on light panels / studio backdrop — no harsh black outline. */
+  --mc-nick-color: #152019;
+  --mc-nick-shadow:
+    0 1px 0 color-mix(in srgb, #fff 75%, transparent),
+    1px 1px 0 color-mix(in srgb, #152019 16%, transparent);
+  --mc-nick-shadow-soft:
+    0 1px 0 color-mix(in srgb, #fff 70%, transparent),
+    1px 1px 0 color-mix(in srgb, #152019 12%, transparent);
+
+  --badge-ms-fg: #1d4ed8;
+  --badge-ms-bg: rgba(37, 99, 235, 0.1);
+  --badge-ms-border: rgba(37, 99, 235, 0.28);
+  --badge-offline-fg: #9c4c07;
+  --badge-offline-bg: rgba(217, 119, 6, 0.12);
+  --badge-offline-border: rgba(180, 83, 9, 0.28);
+  --badge-ygg-fg: #6d28d9;
+  --badge-ygg-bg: rgba(109, 40, 217, 0.1);
+  --badge-ygg-border: rgba(109, 40, 217, 0.28);
+
+  --glass-bg: rgba(11, 11, 13, 0.65);
+  --glass-highlight: color-mix(in srgb, #fff 40%, var(--bg-primary));
+  --glass-border: color-mix(in srgb, #fff 24%, var(--border-color));
+  --glass-blur: 14px;
+  --glass-saturate: 140%;
+  --hero-fg: #ffffff;
+  --hero-fg-muted: color-mix(in srgb, #ffffff 78%, transparent);
+  --hero-scrim:
+    linear-gradient(90deg, rgba(11, 11, 13, 0.72) 0%, rgba(11, 11, 13, 0.38) 55%, rgba(11, 11, 13, 0.28) 75%, transparent 100%),
+    linear-gradient(0deg, rgba(11, 11, 13, 0.72) 0%, rgba(11, 11, 13, 0.42) 52%, rgba(11, 11, 13, 0.24) 78%, transparent 100%);
+  --play-glow: 0 8px 24px color-mix(in srgb, var(--accent-primary) 22%, transparent);
+  --play-glow-hover: 0 12px 32px color-mix(in srgb, var(--accent-primary) 32%, transparent);
+}
+
+[data-theme="win95"] {
+  --on-accent: #fff;
+  --mc-nick-color: #000;
+  --mc-nick-shadow: 1px 1px 0 #fff, 2px 2px 0 #808080;
+  --mc-nick-shadow-soft: 1px 1px 0 #fff;
+  --badge-ms-fg: #000080;
+  --badge-ms-bg: #fff;
+  --badge-ms-border: #000;
+  --badge-offline-fg: #000;
+  --badge-offline-bg: #ffff80;
+  --badge-offline-border: #808000;
+  --badge-ygg-fg: #000080;
+  --badge-ygg-bg: #c0c0ff;
+  --badge-ygg-border: #000080;
+}
+
+/* Element-level defaults live in the `base` layer so Tailwind utilities
+   (bg-*, px-*, text-*, …) applied in markup always win. */
+@layer base {
+  /* Light themes: tokens instead of hardcoded gray. The old rule forced
+     `#39393b` on EVERY button, overriding component theme-token skins
+     (Library tabs, toolbar buttons) with the Ore gray. Buttons now follow
+     --bg-elevated / --border-color so component skins stay in control; the
+     Ore-style pressed edge is kept via border-bottom width. */
+  [data-theme="light"] button,
+  [data-theme="tuffbox-light"] button {
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border-color: var(--border-color);
+    border-bottom-color: color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
+  [data-theme="light"] button.primary,
+  [data-theme="tuffbox-light"] button.primary {
+    background: #491ac0;
+    border-color: #491ac0;
+    border-bottom-color: #32127f;
+    color: #ffffff;
+  }
+
+  /* The skins below carry an explicit `button.<class>` selector so they outrank
+     the unclassed `button.secondary` skin in the layer (equal specificity, later
+     in this file wins — without it light themes kept the ore-grey fill and the
+     dark-theme text colour, i.e. ~1.2:1 contrast). Win95 is a light theme too,
+     so it gets the same treatment as TuffBox Light. */
+  [data-theme="light"] button.secondary,
+  [data-theme="tuffbox-light"] button.secondary,
+  [data-theme="win95"] button.secondary,
+  [data-theme="light"] button.secondary:hover:not(:disabled),
+  [data-theme="tuffbox-light"] button.secondary:hover:not(:disabled),
+  [data-theme="win95"] button.secondary:hover:not(:disabled) {
+    background: var(--bg-elevated);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+  }
+
+  [data-theme="light"] button.secondary:hover:not(:disabled),
+  [data-theme="tuffbox-light"] button.secondary:hover:not(:disabled),
+  [data-theme="win95"] button.secondary:hover:not(:disabled) {
+    filter: brightness(0.96);
+  }
+
+  [data-theme="win95"] button.secondary {
+    border: 2px solid;
+    border-color: #dfdfdf #000 #000 #dfdfdf;
+  }
+
+  [data-theme="light"] button.ghost,
+  [data-theme="tuffbox-light"] button.ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-secondary);
+  }
+
+  [data-theme="light"] button.secondary:hover,
+  [data-theme="light"] button.ghost:hover,
+  [data-theme="tuffbox-light"] button.secondary:hover,
+  [data-theme="tuffbox-light"] button.ghost:hover {
+    color: var(--text-primary);
+  }
+
+  [data-theme="light"] pre,
+  [data-theme="light"] textarea,
+  [data-theme="tuffbox-light"] pre,
+  [data-theme="tuffbox-light"] textarea {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  [data-theme="light"] .sidebar,
+  [data-theme="tuffbox-light"] .sidebar {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+  }
+
+  [data-theme="light"] .header,
+  [data-theme="tuffbox-light"] .header {
+    background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+    border-color: var(--border-color);
+  }
+
+  [data-theme="light"] code,
+  [data-theme="tuffbox-light"] code {
+    color: var(--accent-primary);
+    background: var(--bg-elevated);
+  }
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+    width: 100%;
+    /* One scroll owner: panes inside .app-shell — never the document. */
+    overflow: hidden;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--font-base, 14px);
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Buttons in the Ore UI (Minecraft) style, per Prism "Dark Amethyst" theme:
+     near-square, flat fill, and a darker bottom edge that visually depresses
+     when pressed (border-bottom shrinks + button shifts down). Accent fill is
+     amethyst #491AC0 via .primary. */
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid #39393b;
+    border-bottom-width: 3px;
+    border-radius: 3px;
+    padding: 6px 12px 5px;
+    background: #39393b;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 13px;
+    transition: background 0.1s ease, border-color 0.1s ease, margin-top 0.05s ease,
+      padding 0.05s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* Hover/press must brighten/darken whatever fill a button already has —
+     overriding `background` here paints accent/danger buttons gray (Ore UI
+     theme regression), so tint via filter instead of a hard color swap. */
+  button:hover:not(:disabled) {
+    filter: brightness(1.18);
+  }
+
+  button:active:not(:disabled) {
+    filter: brightness(0.82);
+    border-bottom-width: 1px;
+    margin-top: 2px;
+  }
+
+  button.primary {
+    background: #491ac0;
+    border-color: #491ac0;
+    border-bottom-color: #32127f;
+  }
+
+  button.primary:hover:not(:disabled) {
+    background: #5c2dd5;
+    border-color: #5c2dd5;
+    border-bottom-color: #3f1a96;
+  }
+
+  button.secondary {
+    background: #39393b;
+    color: #ffffff;
+    border: 1px solid #39393b;
+    border-bottom-width: 3px;
+    border-bottom-color: #232425;
+  }
+
+  button.secondary:hover {
+    background: #47484a;
+  }
+
+  button.ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: transparent;
+    border-bottom-width: 1px;
+  }
+
+  button.ghost:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  /* ── Focus-visible (keyboard-only) ─────────────────────────────── */
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Skeleton shimmer for loading placeholders */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bg-elevated) 88%, transparent) 20%,
+    color-mix(in srgb, var(--bg-hover) 92%, var(--accent-primary) 8%) 50%,
+    color-mix(in srgb, var(--bg-elevated) 88%, transparent) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--border-radius-sm);
+  color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+
+.skeleton * {
+  visibility: hidden;
+}
+
+/* Soft block placeholders (home feed, panels) */
+.skeleton-block {
+  display: block;
+  flex-shrink: 0;
+}
+
+.skeleton-line {
+  height: 10px;
+  width: 100%;
+}
+
+.skeleton-line.short {
+  width: 62%;
+}
+
+.skeleton-line.medium {
+  width: 78%;
+}
+
+.skeleton-round {
+  border-radius: 999px;
+}
+
+.skeleton-card {
+  border-radius: var(--border-radius-md, 8px);
+}
+
+.home-skel-stagger .skeleton {
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────── */
+
+/* Idle CPU: while the window is minimized / fully occluded (WebView2 reports
+   document.visibilityState "hidden"), every CSS animation pauses — a
+   backgrounded launcher must cost ~0 CPU. Class toggled by
+   installAppHiddenSync() (src/lib/idlePerf.ts). */
+body.app-hidden *,
+body.app-hidden *::before,
+body.app-hidden *::after {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    --glass-blur: 0;
+    --glass-saturate: 100%;
+    --stagger-step: 0;
+    --play-glow: 0 4px 16px color-mix(in srgb, var(--accent-primary) 22%, transparent);
+    --play-glow-hover: 0 4px 16px color-mix(in srgb, var(--accent-primary) 22%, transparent);
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  /* Text fields only — radio/checkbox/range break if padded like text inputs */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-family: inherit;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 10px 14px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]):focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--accent-primary);
+  }
+
+  /* Checkbox / radio adopt the theme accent instead of the system blue.
+     Range follows too so any slider stays on-palette. */
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="range"] {
+    accent-color: var(--accent-primary);
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-hover) var(--bg-elevated, rgba(255, 255, 255, 0.04));
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.04));
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-active);
+}
+
+/* Single-line text truncation (titles, filenames, tags in cards/lists).
+   Reach for this instead of a one-off `overflow:hidden; text-overflow:ellipsis;
+   white-space:nowrap;` trio scattered per-component — keeps long mod names,
+   paths, etc. from overflowing their card/row instead of being clipped. */
+.tb-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Multi-line clamp (2 lines) for descriptions/summaries in cards. */
+.tb-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Frosted glass surface — panels and cards over textured/ambient shell. */
+.glass-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow:
+    var(--shadow-md),
+    inset 0 1px 0 var(--glass-highlight);
+}
+
+/* Text selection follows active theme accent (not fixed TuffBox green). */
+::selection {
+  background: color-mix(in srgb, var(--accent-primary) 38%, transparent);
+  color: var(--text-primary);
+}
+
+/* Potato PC mode — strip motion cost on weak machines. */
+html.potato-pc {
+  --glass-blur: 0;
+  --glass-saturate: 100%;
+  --play-glow: none;
+  --play-glow-hover: none;
+}
+
+html.potato-pc *,
+html.potato-pc *::before,
+html.potato-pc *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* Keep indeterminate loaders spinning even in potato-pc / reduced-motion.
+   !important: many Svelte components redefine :global(.spin) with scoped
+   @keyframes names that never match, which freezes the icon. */
+@keyframes tb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: tb-spin 900ms linear infinite !important;
+}
+
+html.potato-pc .spin,
+html.potato-pc .spin * {
+  animation: tb-spin 900ms linear infinite !important;
+}
+
+@layer base {
+  /* Press feedback (Prism-style: background only, no transform). Calm delayed
+     hover, instant press. Signature easing token from :root. */
+  button {
+    transition: background var(--motion-fast) var(--motion-ease),
+      border-color var(--motion-fast) var(--motion-ease),
+      color var(--motion-fast) var(--motion-ease);
+    transition-delay: 0ms;
+  }
+  button:hover:not(:disabled) {
+    transition-delay: var(--motion-hover-delay, 70ms);
+  }
+  button:active:not(:disabled) {
+    transition-delay: 0ms;
+  }
+}
+
+/* ── Search fields with overlaid glyph ─────────────────────────────
+   Absolute icon + input without extra left padding = placeholder
+   colliding with the magnifying glass (common project bug). */
+.search-glyph {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 1;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.search:has(> .search-glyph),
+.search-field:has(> .search-glyph),
+.toolbar-search:has(> .search-glyph) {
+  position: relative;
+}
+.search:has(> .search-glyph) > input,
+.search-field:has(> .search-glyph) > input,
+.toolbar-search:has(> .search-glyph) > input {
+  /* Beat local `padding:` shorthands that wipe padding-left */
+  padding-left: 40px !important;
+}
+.search.mini:has(> .search-glyph) > .search-glyph {
+  left: 8px;
+}
+.search.mini:has(> .search-glyph) > input {
+  padding-left: 30px !important;
+}
+
+/* Prefer in-flow icon (no overlay). Use on new search UIs. */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  box-sizing: border-box;
+}
+.search-box > input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 10px 0;
+  outline: none;
+  font: inherit;
+}
+.search-box > input::placeholder {
+  color: var(--text-muted);
+}
+.search-box.mini {
+  padding: 0 8px;
+  gap: 6px;
+}
+.search-box.mini > input {
+  padding: 6px 0;
+  font-size: 12px;
+}
+

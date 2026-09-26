@@ -1,0 +1,44 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = "https://maven.fabricmc.net/" }
+        maven { url = "https://maven.neoforged.net/releases/" }
+        maven { url = "https://maven.minecraftforge.net/" }
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        mavenCentral()
+        maven { url = "https://maven.fabricmc.net/" }
+        maven { url = "https://maven.neoforged.net/releases/" }
+        maven { url = "https://maven.minecraftforge.net/" }
+    }
+}
+
+rootProject.name = "tuffbox-cosmetics"
+
+include("core")
+include("fabric")
+include("neoforge")
+
+// Modern anchors (scaffold / ports)
+include("fabric-1.21.4")
+include("neoforge-1.21.4")
+include("fabric-1.21.11")
+include("neoforge-1.21.11")
+include("fabric-26.1.2")
+include("neoforge-26.1.2")
+include("fabric-26.2")
+include("neoforge-26.2")
+
+// Mid anchors
+include("fabric-1.20.1")
+include("forge-1.20.1")
+include("neoforge-1.20.1")
+include("fabric-1.16.5")
+include("forge-1.16.5")
+
+// Legacy
+include("forge-1.12.2")

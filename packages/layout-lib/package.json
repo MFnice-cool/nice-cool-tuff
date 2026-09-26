@@ -1,0 +1,32 @@
+{
+  "name": "@tuffbox/layout-lib",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tailwind CSS grid/shell/stack layout library for TuffBox desktop (Svelte 5 runes).",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "tailwindcss": "^4"
+  },
+  "peerDependencies": {
+    "svelte": "^5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4",
+    "svelte": "^5",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
+  }
+}

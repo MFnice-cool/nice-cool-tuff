@@ -1,0 +1,45 @@
+[workspace]
+members = [
+  "crates/tuffbox-core",
+  "crates/tuffbox-cli",
+  "crates/tuffswarm-hub",
+  "crates/tuffswarm-node",
+  "apps/tuffbox-desktop/src-tauri",
+  "bridges/overlay-hook",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/MFcrychelt/tuffbox"
+rust-version = "1.78"
+
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tempfile = "3"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "stream", "multipart", "native-tls"] }
+sha1 = "0.10"
+sha2 = "0.10"
+md-5 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+zip = "2"
+toml = "0.8"
+dirs = "5"
+winreg = "0.52"
+lazy_static = "1.5"
+tokio = { version = "1", features = ["rt-multi-thread", "process", "fs", "io-util", "macros", "time", "sync"] }
+rayon = "1.10"
+flate2 = "1"
+once_cell = "1"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+pulldown-cmark = "0.12"
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"

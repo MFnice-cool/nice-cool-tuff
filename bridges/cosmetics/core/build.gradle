@@ -1,0 +1,21 @@
+plugins {
+    id "java-library"
+}
+
+base {
+    archivesName = "tuffbox-cosmetics-core"
+}
+
+java {
+    // Cross-compile to bytecode 8 from JDK 21 (no JDK 8 install required).
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.release = 8
+}

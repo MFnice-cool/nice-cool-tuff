@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "tuffbox_overlay",
+  "version": "${version}",
+  "name": "TuffBox Overlay",
+  "description": "Discord/Steam-style in-game overlay: YouTube player with background audio + PiP, friends presence and chat.",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.tuffbox.overlay.TuffBoxOverlayClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "watermedia": ">=2.1.1"
+  },
+  "custom": {
+    "tuffbox:gui": "F8 — TuffBox Overlay"
+  }
+}

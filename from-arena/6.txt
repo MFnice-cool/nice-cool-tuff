@@ -1,0 +1,225 @@
+pub struct AdapterRegistry {
+    loader_adapters: Vec<Box<dyn LoaderAdapter>>,
+    mod_overrides: HashMap<String, Box<dyn ModOverride>>,
+}
+
+impl AdapterRegistry {
+    pub fn new() -> Self {
+        let mut registry = Self {
+            loader_adapters: vec![
+                Box::new(ForgeAdapter),
+                Box::new(NeoForgeAdapter),
+                Box::new(FabricAdapter),
+            ],
+            mod_overrides: HashMap::new(),
+        };
+
+        // Регистрируем мод-специфичные override'ы
+        registry.register_override(Box::new(MekanismOverride));
+        registry.register_override(Box::new(ThermalOverride));
+        registry.register_override(Box::new(CreateOverride));
+
+        registry
+    }
+
+    pub fn register_override(&mut self, over: Box<dyn ModOverride>) {
+        self.mod_overrides.insert(over.mod_id().to_string(), over);
+    }
+
+    pub fn get_adapter(&self, loader: ModLoader) -> Option<&dyn LoaderAdapter> {
+        self.loader_adapters
+            .iter()
+            .find(|a| a.supported_loaders().contains(&loader))
+            .map(|a| a.as_ref())
+    }
+
+    pub fn get_override(&self, mod_id: &str) -> Option<&dyn ModOverride> {
+        self.mod_overrides.get(mod_id).map(|o| o.as_ref())
+    }
+
+    /// Полное сканирование модпака с учётом всех адаптеров
+    pub fn scan_modpack(
+        &self,
+        env: &ModpackEnvironment,
+    ) -> Result<UnifiedModpackData, ScanError> {
+        let adapter = self
+            .get_adapter(env.loader)
+            .ok_or(ScanError::UnsupportedLoader(env.loader))?;
+
+        let mods_dir = env.root_path.join("mods");
+        let mut data = UnifiedModpackData::default();
+
+        // Сканируем каждый JAR
+        for entry in std::fs::read_dir(&mods_dir)?.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "jar").unwrap_or(false) {
+                match self.scan_single_mod(&path, adapter, env) {
+                    Ok(mod_data) => {
+                        // Проверяем, есть ли override для этого мода
+                        if let Some(over) = self.get_override(&mod_data.metadata.mod_id) {
+                            data.merge_with_override(mod_data, over);
+                        } else {
+                            data.merge(mod_data);
+                        }
+                    }
+                    Err(e) => {
+                        data.scan_errors.push(format!(
+                            "{}: {}",
+                            path.display(),
+                            e
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Нормализуем теги
+        data.normalize_tags(env);
+
+        Ok(data)
+    }
+
+    fn scan_single_mod(
+        &self,
+        jar_path: &Path,
+        adapter: &dyn LoaderAdapter,
+        env: &ModpackEnvironment,
+    ) -> Result<ScannedMod, ScanError> {
+        let file = std::fs::File::open(jar_path)?;
+        let mut archive = zip::ZipArchive::new(file)?;
+
+        let metadata = adapter
+            .extract_metadata(&mut archive)
+            .map_err(|e| ScanError::Adapter(e.to_string()))?;
+
+        // Пропускаем Legacy-эпоху: рецептов в JAR нет
+        let mut recipes = Vec::new();
+        let mut tags = Vec::new();
+
+        if env.data_epoch != DataEpoch::Legacy {
+            // Рецепты
+            let recipe_paths = adapter.recipe_paths(&archive);
+            for rpath in &recipe_paths {
+                if let Ok(mut entry) = archive.by_name(rpath) {
+                    let mut content = String::new();
+                    if entry.read_to_string(&mut content).is_ok() {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                            match adapter.parse_recipe(&json, rpath, &env.mc_version) {
+                                Ok(recipe) => recipes.push(recipe),
+                                Err(_) => {} // Логируем, но не падаем
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Теги
+            let tag_paths = adapter.item_tag_paths(&archive);
+            for tpath in &tag_paths {
+                if let Ok(mut entry) = archive.by_name(tpath) {
+                    let mut content = String::new();
+                    if entry.read_to_string(&mut content).is_ok() {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                            match adapter.parse_tag(&json, tpath) {
+                                Ok(tag) => tags.push(tag),
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(ScannedMod {
+            metadata,
+            recipes,
+            tags,
+            jar_path: jar_path.to_path_buf(),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct ScannedMod {
+    pub metadata: ModMetadata,
+    pub recipes: Vec<UnifiedRecipe>,
+    pub tags: Vec<UnifiedTag>,
+    pub jar_path: PathBuf,
+}
+
+#[derive(Debug, Default)]
+pub struct UnifiedModpackData {
+    pub mods: Vec<ModMetadata>,
+    pub all_recipes: Vec<UnifiedRecipe>,
+    pub all_tags: HashMap<TagId, Vec<TagEntry>>,
+    pub ore_configs: Vec<OreConfigMapping>,
+    pub programmatic_items: Vec<(String, String)>, // (item_id, mod_id)
+    pub scan_errors: Vec<String>,
+}
+
+impl UnifiedModpackData {
+    fn merge(&mut self, scanned: ScannedMod) {
+        let mod_id = scanned.metadata.mod_id.clone();
+        self.mods.push(scanned.metadata);
+
+        for recipe in scanned.recipes {
+            self.all_recipes.push(recipe);
+        }
+
+        for tag in scanned.tags {
+            self.all_tags
+                .entry(tag.id)
+                .or_default()
+                .extend(tag.entries);
+        }
+    }
+
+    fn merge_with_override(
+        &mut self,
+        scanned: ScannedMod,
+        over: &dyn ModOverride,
+    ) {
+        let mod_id = scanned.metadata.mod_id.clone();
+
+        // Добавляем программные предметы
+        for item in over.programmatic_items() {
+            self.programmatic_items.push((item, mod_id.clone()));
+        }
+
+        // Добавляем программные рецепты
+        let mut extra_recipes = over.programmatic_recipes();
+        self.all_recipes.append(&mut extra_recipes);
+
+        // Добавляем маппинги конфигов руд
+        self.ore_configs.extend(over.ore_gen_config_keys());
+
+        // Обычная обработка
+        self.merge(scanned);
+    }
+
+    fn normalize_tags(&mut self, env: &ModpackEnvironment) {
+        let tags_snapshot: Vec<(TagId, Vec<TagEntry>)> =
+            self.all_tags.drain().collect();
+
+        for (tag_id, entries) in tags_snapshot {
+            let normalized = TagNormalizer::normalize(&tag_id, env);
+
+            self.all_tags
+                .entry(normalized)
+                .or_default()
+                .extend(entries);
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ScanError {
+    #[error("IO: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("ZIP: {0}")]
+    Zip(#[from] zip::result::ZipError),
+    #[error("Адаптер: {0}")]
+    Adapter(String),
+    #[error("Неподдерживаемый загрузчик: {0:?}")]
+    UnsupportedLoader(ModLoader),
+}

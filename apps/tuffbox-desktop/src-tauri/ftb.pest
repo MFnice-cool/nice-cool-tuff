@@ -1,0 +1,22 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" | "," }
+
+file = { SOI ~ (object | pairs) ~ EOI }
+pairs = _{ pair* }
+
+value = _{ boolean | number | object | array | string | unquoted_string }
+
+object = { "{" ~ pair* ~ "}" }
+array = { "[" ~ value* ~ "]" }
+
+pair = { key ~ ":" ~ value }
+key = { identifier | string }
+
+identifier = @{ (ASCII_ALPHANUMERIC | "_" | "-" | ".")+ }
+unquoted_string = @{ (ASCII_ALPHANUMERIC | "_" | "-" | ".")+ }
+
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ ("\\\"" | (!"\"" ~ ANY))* }
+
+boolean = @{ "true" | "false" }
+
+number = @{ ("-" | "+")? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? ~ ("b" | "B" | "s" | "S" | "l" | "L" | "f" | "F" | "d" | "D")? }

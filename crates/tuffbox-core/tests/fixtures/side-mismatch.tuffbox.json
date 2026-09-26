@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "0.1.0",
+  "project": { "id": "side-mismatch", "name": "Side Mismatch", "version": "0.1.0" },
+  "minecraft": { "version": "1.20.1" },
+  "loader": { "type": "fabric", "version": "0.15.11" },
+  "java": { "major": 17 },
+  "profiles": [
+    {
+      "id": "server",
+      "name": "Server",
+      "side": "server",
+      "includeMods": ["jei"]
+    }
+  ],
+  "mods": [
+    {
+      "id": "jei",
+      "name": "JEI",
+      "source": { "type": "modrinth", "projectId": "jei" },
+      "version": "15.3.0",
+      "side": "client",
+      "dependencies": []
+    }
+  ]
+}

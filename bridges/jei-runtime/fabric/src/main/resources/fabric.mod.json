@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "tuffbox_jei_bridge",
+  "version": "${version}",
+  "name": "TuffBox JEI Runtime Bridge",
+  "description": "Read-only localhost bridge between a TuffBox instance and JEI.",
+  "environment": "client",
+  "entrypoints": {
+    "jei_mod_plugin": [
+      "dev.tuffbox.jeibridge.TuffBoxJeiPlugin"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "1.21.1",
+    "java": ">=21",
+    "jei": ">=19.21.0"
+  }
+}
